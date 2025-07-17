@@ -1,0 +1,8 @@
+body { font-family: Arial, sans-serif; min-width:320px; }
+h2 { font-size: 18px; margin-bottom: 10px; }
+input, select, button, textarea { margin: 2px 0; font-size: 14px; }
+input[type=text], textarea { width: 98%; }
+.config-box { background:#f7f7f7; margin-bottom:13px; padding:10px 6px; border-radius:6px; }
+.selector-row { display:flex; gap:4px; align-items:center; margin-bottom:2px; }
+.selector-row input { width:88%; }
+button.small { font-size:12px; padding:2px 7px; }
