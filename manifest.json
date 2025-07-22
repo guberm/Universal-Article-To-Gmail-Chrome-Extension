@@ -3,7 +3,7 @@
   "name": "Universal Article to Gmail",
   "version": "1.2",
   "description": "Copy articles with formatting and insert into Gmail automatically. Configurable selectors with enhanced field detection.",
-  "permissions": ["storage", "scripting", "activeTab"],
+  "permissions": ["storage"],
   "host_permissions": [
     "https://mail.google.com/*",
     "<all_urls>"
