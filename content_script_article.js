@@ -34,19 +34,42 @@
             btn.textContent = 'Send Article to Gmail';
             Object.assign(btn.style, {
                 position: 'fixed',
-                right: '22px',
-                bottom: '24px',
+                right: '20px',
+                bottom: '20px',
                 zIndex: 99999,
-                padding: '13px 24px',
+                padding: '8px 16px',
                 background: '#348ceb',
                 color: '#fff',
                 fontWeight: 'bold',
-                fontSize: '16px',
-                borderRadius: '8px',
+                fontSize: '14px',
+                borderRadius: '6px',
                 border: 'none',
-                boxShadow: '0 3px 9px #0002',
-                cursor: 'pointer'
+                boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
             });
+            
+            // Add hover and active states
+            btn.addEventListener('mouseenter', () => {
+                btn.style.background = '#2c7cd1';
+                btn.style.transform = 'translateY(-1px)';
+                btn.style.boxShadow = '0 3px 8px rgba(0,0,0,0.2)';
+            });
+            
+            btn.addEventListener('mouseleave', () => {
+                btn.style.background = '#348ceb';
+                btn.style.transform = 'translateY(0)';
+                btn.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
+            });
+            
+            btn.addEventListener('mousedown', () => {
+                btn.style.transform = 'translateY(1px)';
+            });
+            
+            btn.addEventListener('mouseup', () => {
+                btn.style.transform = 'translateY(-1px)';
+            });
+            
             btn.onclick = () => {
                 const el = findArticleElement(config);
                 if (!el) {
