@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест обработки изображений - Universal Article to Gmail</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-article {
+            border: 2px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .test-image {
+            max-width: 100%;
+            margin: 10px 0;
+        }
+        .bg-image-test {
+            height: 200px;
+            background-image: url('https://via.placeholder.com/400x200/0066cc/ffffff?text=Background+Image');
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .instructions {
+            background: #f0f8ff;
+            padding: 15px;
+            border-left: 4px solid #0066cc;
+            margin: 20px 0;
+        }
+        button {
+            background: #348ceb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #2874d1;
+        }
+    </style>
+</head>
+<body>
+    <h1>Тест обработки изображений в Universal Article to Gmail Extension</h1>
+    
+    <div class="instructions">
+        <h3>📋 Инструкции для тестирования:</h3>
+        <ol>
+            <li>Убедитесь, что расширение Universal Article to Gmail установлено и активно</li>
+            <li>Настройте селектор для этой страницы: <code>.test-article</code></li>
+            <li>Нажмите кнопку "Send Article to Gmail" которая появится внизу страницы</li>
+            <li>Проверьте, как обрабатываются различные типы изображений</li>
+            <li>Откройте Developer Tools (F12) для просмотра логов обработки</li>
+        </ol>
+    </div>
+
+    <article class="test-article">
+        <h2>Тестовая статья с различными типами изображений</h2>
+        
+        <p>Эта статья содержит различные типы изображений для тестирования функций обработки изображений в расширении.</p>
+
+        <h3>1. Обычное изображение (маленькое, должно конвертироваться в Base64)</h3>
+        <img src="https://via.placeholder.com/300x200/ff6b6b/ffffff?text=Small+Image" 
+             alt="Маленькое тестовое изображение" 
+             class="test-image">
+
+        <h3>2. Большое изображение (должно быть сжато или заменено плейсхолдером)</h3>
+        <img src="https://via.placeholder.com/1200x800/4ecdc4/ffffff?text=Large+Image" 
+             alt="Большое тестовое изображение" 
+             class="test-image">
+
+        <h3>3. Изображение с неработающей ссылкой (должно быть заменено плейсхолдером)</h3>
+        <img src="https://nonexistent-domain-12345.com/broken-image.jpg" 
+             alt="Сломанное изображение" 
+             class="test-image">
+
+        <h3>4. SVG изображение</h3>
+        <img src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><circle cx='50' cy='50' r='40' fill='%23ff9f43'/><text x='50' y='55' text-anchor='middle' fill='white' font-family='Arial' font-size='14'>SVG</text></svg>" 
+             alt="SVG тестовое изображение" 
+             class="test-image">
+
+        <h3>5. Фоновое изображение CSS (должно быть конвертировано в обычное изображение)</h3>
+        <div class="bg-image-test">
+            Это элемент с фоновым изображением
+        </div>
+
+        <h3>6. Изображение с относительным URL</h3>
+        <img src="icon128.png" 
+             alt="Иконка расширения" 
+             class="test-image">
+
+        <p><strong>Источник:</strong> Тестовая страница для Universal Article to Gmail Extension</p>
+        
+        <blockquote>
+            <p>Этот контент используется для тестирования обработки изображений в email. 
+            Проверьте консоль браузера для подробных логов процесса обработки.</p>
+        </blockquote>
+
+        <h3>Ожидаемые результаты:</h3>
+        <ul>
+            <li>✅ Маленькие изображения должны конвертироваться в Base64</li>
+            <li>🔄 Большие изображения должны сжиматься или заменяться ссылками</li>
+            <li>🚫 Сломанные изображения должны заменяться информативными плейсхолдерами</li>
+            <li>🎨 Фоновые изображения должны становиться обычными изображениями</li>
+            <li>📱 Все изображения должны быть адаптивными в email</li>
+            <li>📋 Данные должны передаваться через буфер обмена (v1.5.0+)</li>
+        </ul>
+        
+        <h3>Тестирование clipboard передачи (v1.5.0):</h3>
+        <ol>
+            <li>После нажатия кнопки расширения должно появиться зеленое уведомление</li>
+            <li>В Gmail должно появиться синее уведомление о вставке из clipboard</li>
+            <li>Проверьте в консоли логи: "clipboard successfully", "clipboard data found"</li>
+        </ol>
+    </article>
+
+    <div class="instructions">
+        <h3>🔍 Как проверить результат:</h3>
+        <ol>
+            <li>После нажатия кнопки расширения откроется Gmail</li>
+            <li>Проверьте содержимое письма в окне создания</li>
+            <li>Отправьте письмо себе для проверки отображения у получателя</li>
+            <li>Проверьте, что изображения отображаются корректно</li>
+        </ol>
+        
+        <button onclick="window.open('https://mail.google.com/mail/?view=cm&fs=1', '_blank')">
+            Открыть Gmail для сравнения
+        </button>
+        
+        <button onclick="testClipboardAPI()">
+            Тест Clipboard API
+        </button>
+    </div>
+
+    <script>
+        // Тест clipboard API
+        async function testClipboardAPI() {
+            try {
+                // Проверка разрешений
+                const permission = await navigator.permissions.query({name: 'clipboard-read'});
+                console.log('📋 Clipboard read permission:', permission.state);
+                
+                // Тест записи
+                await navigator.clipboard.writeText('Test clipboard write');
+                console.log('✅ Clipboard write test passed');
+                
+                // Тест чтения
+                const text = await navigator.clipboard.readText();
+                console.log('✅ Clipboard read test passed:', text);
+                
+                alert('✅ Clipboard API работает корректно!');
+            } catch (error) {
+                console.error('❌ Clipboard API error:', error);
+                alert('❌ Ошибка Clipboard API: ' + error.message);
+            }
+        }
+        
+        // Добавляем дополнительную информацию в консоль для тестирования
+        console.log('🧪 Universal Article to Gmail - Тестовая страница загружена (v1.5.0)');
+        console.log('📊 Найдено изображений на странице:', document.querySelectorAll('img').length);
+        console.log('🎨 Найдено элементов с background-image:', 
+            Array.from(document.querySelectorAll('*')).filter(el => 
+                window.getComputedStyle(el).backgroundImage !== 'none'
+            ).length
+        );
+        
+        // Проверка поддержки Clipboard API
+        if (navigator.clipboard) {
+            console.log('✅ Clipboard API поддерживается');
+        } else {
+            console.warn('❌ Clipboard API не поддерживается в этом браузере');
+        }
+        
+        // Логирование при загрузке изображений
+        document.querySelectorAll('img').forEach((img, index) => {
+            img.onload = () => console.log(`✅ Изображение ${index + 1} загружено:`, img.src);
+            img.onerror = () => console.log(`❌ Изображение ${index + 1} не загрузилось:`, img.src);
+        });
+    </script>
+</body>
+</html>

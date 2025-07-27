@@ -60,7 +60,7 @@ ${el.outerHTML}`;
                 console.log('UAS: Saving article content to storage');
                 chrome.storage.local.set({
                     articleContentForGmail: html,
-                    articleToEmail: config.toEmail || "",
+                    articleToEmail: config.defaultRecipient || config.toEmail || "",
                     articleSubject: document.title
                 }, () => {
                     console.log('UAS: Article content saved, opening Gmail');

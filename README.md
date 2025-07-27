@@ -6,6 +6,7 @@ A Chrome extension that allows you to easily copy articles with formatting and a
 
 - **One-click article extraction** from any website
 - **Automatic Gmail integration** with compose window pre-filling
+- **Default recipient auto-fill** - set default email addresses per site
 - **Configurable selectors** for different websites
 - **Intelligent field detection** for To, Subject, and Body fields
 - **Enhanced stability** with multiple fallback selectors
