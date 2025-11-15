@@ -73,9 +73,52 @@ Open the popup Settings section to toggle:
 
 ### Import / Export Configurations
 
+**UI Buttons (Side Panel/Popup):**
 - Click `Export JSON` to download `siteConfigs.json` backup.
 - Click `Import JSON` and choose a previously exported file to replace all configs.
 - Validation ensures each config has `hostPattern` and `selectors` (backwards compatible with legacy `toEmail`).
+
+**Console Commands (Side Panel/Popup):**
+
+Open side panel → F12 → Console, then use:
+
+```javascript
+// List all configs in table format
+UAS_CONFIG_LIST()
+
+// Export to console and clipboard
+UAS_CONFIG_EXPORT()
+
+// Import from JSON string or array
+UAS_CONFIG_IMPORT('[{"name":"Site","hostPattern":"example\\.com","selectors":[".article"]}]')
+
+// Export from old extension version (all storage)
+UAS_EXPORT_OLD()
+```
+
+**For Old Extension Versions (Manual Migration):**
+
+Export from old version console:
+```javascript
+chrome.storage.local.get({ siteConfigs: [] }, d => {
+  console.table(d.siteConfigs);
+  console.log(JSON.stringify(d.siteConfigs, null, 2));
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(JSON.stringify(d.siteConfigs, null, 2));
+    console.log('✓ Copied to clipboard');
+  }
+});
+```
+
+Import into old version console:
+```javascript
+chrome.storage.local.set({ siteConfigs: [
+  /* paste your JSON array here */
+]}, () => {
+  console.log('✓ Imported!');
+  location.reload();
+});
+```
 
 ### Tracing & Diagnostics
 

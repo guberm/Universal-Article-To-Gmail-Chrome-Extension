@@ -193,3 +193,85 @@ document.getElementById('toastEnabledChk').addEventListener('change', () => {
         chrome.storage.local.set({ userSettings: d.userSettings });
     });
 });
+
+// Console helpers for export/import via clipboard
+window.UAS_CONFIG_LIST = function() {
+    chrome.storage.local.get({ siteConfigs: [] }, d => {
+        console.table(d.siteConfigs.map((c, i) => ({
+            index: i,
+            name: c.name || '(unnamed)',
+            hostPattern: c.hostPattern,
+            recipient: c.defaultRecipient || c.toEmail || '(none)',
+            selectors: c.selectors.length + ' selector(s)'
+        })));
+        console.log('Full configs object:', d.siteConfigs);
+        return d.siteConfigs;
+    });
+};
+
+window.UAS_CONFIG_EXPORT = function() {
+    chrome.storage.local.get({ siteConfigs: [] }, d => {
+        const json = JSON.stringify(d.siteConfigs, null, 2);
+        console.log('=== SITE CONFIGS (copy below) ===');
+        console.log(json);
+        console.log('=== END ===');
+        // Try to copy to clipboard
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(json).then(() => {
+                console.log('✓ Copied to clipboard! Paste anywhere to save.');
+            }).catch(() => {
+                console.log('⚠ Copy failed, select and copy the JSON above manually.');
+            });
+        } else {
+            console.log('⚠ Clipboard API unavailable, select and copy the JSON above manually.');
+        }
+        return d.siteConfigs;
+    });
+};
+
+window.UAS_CONFIG_IMPORT = function(jsonStringOrArray) {
+    try {
+        const parsed = typeof jsonStringOrArray === 'string' ? JSON.parse(jsonStringOrArray) : jsonStringOrArray;
+        if (!Array.isArray(parsed)) throw new Error('Must be an array of configs');
+        parsed.forEach((cfg, i) => {
+            if (typeof cfg !== 'object' || cfg === null) throw new Error('Config at index ' + i + ' is not an object');
+            if (typeof cfg.hostPattern !== 'string') throw new Error('Missing hostPattern at index ' + i);
+            if (!Array.isArray(cfg.selectors)) throw new Error('Missing selectors array at index ' + i);
+            if (!cfg.selectors.length) cfg.selectors = [''];
+            if (cfg.toEmail && !cfg.defaultRecipient) cfg.defaultRecipient = cfg.toEmail;
+            if (!('name' in cfg)) cfg.name = '';
+            if (!('defaultRecipient' in cfg)) cfg.defaultRecipient = '';
+        });
+        chrome.storage.local.set({ siteConfigs: parsed }, () => {
+            console.log('✓ Imported', parsed.length, 'config(s). Refresh side panel to see changes.');
+            if (typeof render === 'function') render();
+        });
+        return parsed;
+    } catch (e) {
+        console.error('✗ Import failed:', e.message);
+        return null;
+    }
+};
+
+// Backward compatibility for old extension versions
+window.UAS_EXPORT_OLD = function() {
+    chrome.storage.local.get(null, allData => {
+        console.log('=== ALL EXTENSION DATA (old version format) ===');
+        console.log(JSON.stringify(allData, null, 2));
+        console.log('=== siteConfigs only ===');
+        console.log(JSON.stringify(allData.siteConfigs || [], null, 2));
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            const json = JSON.stringify(allData.siteConfigs || [], null, 2);
+            navigator.clipboard.writeText(json).then(() => {
+                console.log('✓ siteConfigs copied to clipboard');
+            });
+        }
+        return allData;
+    });
+};
+
+console.log('UAS Console Helpers Available:');
+console.log('  UAS_CONFIG_LIST() - show current configs in table format');
+console.log('  UAS_CONFIG_EXPORT() - exports configs to console and clipboard');
+console.log('  UAS_CONFIG_IMPORT(jsonString) - imports from JSON string or array');
+console.log('  UAS_EXPORT_OLD() - export from old extension version (all storage data)');
