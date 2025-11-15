@@ -4,4 +4,17 @@ Universal Article to Gmail does not collect, store, or transmit any personal dat
 All data processing occurs locally within your browser. The extension does not send any data to external servers.
 We do not share or sell user information to any third parties.
 
+Clipboard Permission Justification (clipboardWrite)
+-------------------------------------------------
+The extension requests the optional `clipboardWrite` permission solely to place the article content you explicitly choose to send into Gmail onto your system clipboard. This occurs only after you click the "Send Article to Gmail" button (a direct user gesture) and is limited to the HTML (or plain text, if you enable the plain text setting) of the currently viewed article plus a source URL reference.
+
+Key Points:
+1. Write-Only: The extension never reads or inspects existing clipboard contents; it only writes the new article content.
+2. Local-Only: Clipboard data is not transmitted to any remote server or third party; all operations remain within your browser environment.
+3. User-Controlled: You can disable automatic clipboard copying at any time via the side panel Settings (toggle: "Enable automatic clipboard copy"). You can also choose a plain-text-only mode.
+4. Purpose: Providing a manual fallback so the user can paste content into Gmail or other editors if automated insertion encounters issues.
+5. Scope: No persistent storage of clipboard data; nothing leaves your machine.
+
+If you opt out (toggle off), the permission is effectively unused and no clipboard activity occurs.
+
 If you have questions about privacy, please contact us at michael@guber.dev

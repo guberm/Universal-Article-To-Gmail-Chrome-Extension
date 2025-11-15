@@ -11,6 +11,11 @@ A Chrome extension that allows you to easily copy articles with formatting and a
 - **Intelligent field detection** for To, Subject, and Body fields
 - **Enhanced stability** with multiple fallback selectors
 - **Comprehensive debugging tools** for troubleshooting
+- **JSON import/export** of site configurations
+- **Tracing spans & events** for diagnostics (`tracing.js`)
+- **Automatic clipboard copy** with configurable modes
+- **Toast notifications** for copy success/failure
+- **Responsive image best-fit** sizing in Gmail body
 
 ## 📦 Installation
 
@@ -19,6 +24,7 @@ A Chrome extension that allows you to easily copy articles with formatting and a
 3. **Enable Developer mode** (toggle in top right)
 4. **Click "Load unpacked"** and select the extension folder
 5. **Pin the extension** to your toolbar for easy access
+6. **Open Side Panel**: Click the extension icon and choose "Open side panel" (or use Chrome side panel toggle and select the extension).
 
 ## 🛠 Configuration
 
@@ -49,12 +55,41 @@ Selectors: .crayons-article__main
 
 ## 📋 Usage
 
-1. **Navigate to an article** on a configured website
-2. **Click "Send Article to Gmail"** button (appears on supported sites)
-3. **Gmail compose window opens** with:
+1. **Open side panel** to configure sites (instead of popup)
+2. **Navigate to an article** on a configured website
+3. **Click "Send Article to Gmail"** button (appears on supported sites)
+4. **Gmail compose window opens** with:
    - **To field**: Pre-filled with configured email
    - **Subject**: Article title
    - **Body**: Article content with source link
+5. Optional: Clipboard already contains the copied content (HTML or plain text per settings)
+
+### Clipboard & Toast Settings
+
+Open the popup Settings section to toggle:
+- Enable automatic clipboard copy (on by default)
+- Copy as plain text only (disables HTML flavor)
+- Show toast notifications (success/failure feedback)
+
+### Import / Export Configurations
+
+- Click `Export JSON` to download `siteConfigs.json` backup.
+- Click `Import JSON` and choose a previously exported file to replace all configs.
+- Validation ensures each config has `hostPattern` and `selectors` (backwards compatible with legacy `toEmail`).
+
+### Tracing & Diagnostics
+
+The extension emits lightweight spans/events for key actions (extraction, clipboard copy, Gmail insertion). In DevTools console:
+```javascript
+UAS_TRACE_DUMP(); // table of recent spans/events
+```
+Background trace buffer accessible:
+```javascript
+chrome.runtime.sendMessage({type:'UAS_TRACE_GET'}, r => console.log(r.traces));
+```
+
+### Image Handling
+Inserted article images are auto-adjusted to fit Gmail compose width (`max-width:100%; height:auto;`).
 
 ## 🔧 Advanced Features
 
@@ -154,6 +189,22 @@ The extension uses multiple strategies to find Gmail fields:
 | Extension not detecting article | Verify site configuration and selectors |
 
 ## 🔄 Version History
+
+### v1.4.1 - Side Panel Migration
+- Replaced popup with Chrome side panel (`sidepanel.html`).
+- Updated manifest to include `side_panel` entry.
+- Maintains all previous settings & functionality.
+
+### v1.4.0 - Settings, Clipboard, Tracing & Import/Export
+- Added JSON import/export of site configurations.
+- Integrated tracing module (`tracing.js`) with spans/events.
+- Automatic clipboard copy (HTML+plain text) with settings to disable and plain-text-only mode.
+- Toast notifications for clipboard success/failure.
+- Responsive best-fit image sizing in Gmail compose body.
+- Added user settings persistence (`userSettings`).
+- Minor UI enhancements in popup.
+
+### v1.3.1 - (Unreleased internal) Added clipboard permission & groundwork for tracing.
 
 ### v1.2 - Enhanced Field Detection
 - Extended selectors for all Gmail fields (15+ for To field)

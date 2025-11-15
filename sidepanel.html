@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Article Selector Side Panel</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { font-family: sans-serif; margin: 12px; width: 340px; }
+    h2 { margin-top: 0; }
+    #configs .config-box { border:1px solid #ddd; padding:8px; margin-bottom:10px; border-radius:6px; background:#fafafa; }
+    .selector-row { display:flex; gap:6px; margin-top:4px; }
+    .selector-row input { flex:1; }
+    button.small { font-size:12px; padding:4px 8px; }
+    #settings label { font-size:13px; }
+  </style>
+</head>
+<body>
+  <h2>Site Configs (Side Panel)</h2>
+  <div id="configs"></div>
+  <hr>
+  <button id="addSiteBtn">Add Site</button>
+  <div style="margin-top:12px;">
+    <button id="exportBtn" style="margin-right:6px;">Export JSON</button>
+    <button id="importBtn" style="margin-right:6px;">Import JSON</button>
+    <input type="file" id="importFileInput" accept="application/json" style="display:none;" />
+  </div>
+  <hr>
+  <h3 style="margin-top:10px;">Settings</h3>
+  <div id="settings">
+    <label style="display:block;margin-bottom:6px;">
+      <input type="checkbox" id="clipboardEnabledChk"> Enable automatic clipboard copy
+    </label>
+    <label style="display:block;margin-bottom:6px;">
+      <input type="checkbox" id="plainTextOnlyChk"> Copy as plain text only
+    </label>
+    <label style="display:block;margin-bottom:6px;">
+      <input type="checkbox" id="toastEnabledChk"> Show copy success/failure toast
+    </label>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

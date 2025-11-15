@@ -29,9 +29,11 @@ function debugGmailElements() {
 }
 
 function insertToGmail() {
+    const span = window.UAS_TRACE ? UAS_TRACE.startSpan('gmail_insert', {}) : null;
     chrome.storage.local.get(['articleContentForGmail', 'articleToEmail', 'articleSubject'], data => {
         if (!data.articleContentForGmail) {
             console.log('UAS: No article content found in storage');
+            window.UAS_TRACE && UAS_TRACE.event('gmail_no_content', {});
             return;
         }
 
@@ -74,6 +76,7 @@ function insertToGmail() {
                 if (rect.height > 50 && rect.width > 200) {
                     bodyDiv = element;
                     console.log('UAS: Found body element with selector:', selector, 'size:', rect.width + 'x' + rect.height);
+                    window.UAS_TRACE && UAS_TRACE.event('gmail_body_found', { selector, w: Math.round(rect.width), h: Math.round(rect.height) });
                     break;
                 }
             }
@@ -89,6 +92,62 @@ function insertToGmail() {
                 
                 // Insert content
                 bodyDiv.innerHTML = data.articleContentForGmail;
+                window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'content_inserted', { length: data.articleContentForGmail.length });
+
+                // Ensure images are sized to best fit the compose area
+                try {
+                    const applyBestFit = (img) => {
+                        // Remove hard-coded dimensions that could break responsiveness
+                        img.removeAttribute('width');
+                        img.removeAttribute('height');
+                        // Compute container width
+                        const containerWidth = bodyDiv.clientWidth || 600; // fallback estimate
+                        // If natural width bigger than container, scale down
+                        if (img.naturalWidth > containerWidth) {
+                            img.style.width = '100%';
+                        } else {
+                            // Preserve natural size but avoid overflow
+                            img.style.width = Math.min(img.naturalWidth, containerWidth) + 'px';
+                        }
+                        img.style.maxWidth = '100%';
+                        img.style.height = 'auto';
+                        img.style.boxSizing = 'border-box';
+                        img.style.display = 'block'; // avoids inline whitespace issues and centers width behavior
+                        // Add a subtle border radius for aesthetics (optional) – keep minimal
+                        img.style.borderRadius = '4px';
+                    };
+
+                    const processImages = () => {
+                        const images = bodyDiv.querySelectorAll('img');
+                        if (!images.length) {
+                            console.log('UAS: No images found to best-fit');
+                            window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'no_images_found', {});
+                            return;
+                        }
+                        images.forEach(img => {
+                            if (img.complete) {
+                                applyBestFit(img);
+                            } else {
+                                img.addEventListener('load', () => applyBestFit(img), { once: true });
+                            }
+                        });
+                        console.log('UAS: Applied best-fit sizing to', images.length, 'images');
+                        window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'images_best_fit_applied', { count: images.length });
+                    };
+
+                    // Initial processing
+                    processImages();
+
+                    // Observe for late-added or replaced images
+                    const imgObserver = new MutationObserver(() => {
+                        processImages();
+                    });
+                    imgObserver.observe(bodyDiv, { childList: true, subtree: true });
+                    // Stop observing after a reasonable time (e.g., 10s) to avoid performance impact
+                    setTimeout(() => imgObserver.disconnect(), 10000);
+                } catch (e) {
+                    console.warn('UAS: Best-fit image sizing failed:', e);
+                }
                 
                 // Trigger events to notify Gmail of changes
                 bodyDiv.dispatchEvent(new Event('input', { bubbles: true }));
@@ -97,20 +156,24 @@ function insertToGmail() {
                 bodyDiv.dispatchEvent(new Event('paste', { bubbles: true }));
                 
                 console.log('UAS: Article content inserted into body');
+                window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'gmail_body_insert_complete', {});
                 
                 // Additional check - make sure content was actually inserted
                 setTimeout(() => {
                     if (bodyDiv.innerHTML.includes('Source:')) {
                         console.log('UAS: Content insertion verified successfully');
+                        window.UAS_TRACE && UAS_TRACE.endSpan(span, { status: 'success' });
                     } else {
                         console.warn('UAS: Content insertion may have failed, retrying...');
                         bodyDiv.innerHTML = data.articleContentForGmail;
                         bodyDiv.dispatchEvent(new Event('input', { bubbles: true }));
+                        window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'retry_body_insert', {});
                     }
                 }, 200);
             }, 100);
         } else {
             console.warn('UAS: Body element not found');
+            window.UAS_TRACE && UAS_TRACE.endSpan(span, { status: 'body_not_found' });
             // Log all contenteditable elements for debugging
             setTimeout(() => {
                 const allEditables = document.querySelectorAll('[contenteditable="true"]');
@@ -168,6 +231,7 @@ function insertToGmail() {
                         element.closest('[data-name="to"]') || element.name === 'to') {
                         toField = element;
                         console.log('UAS: Found to field with selector:', selector);
+                        window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'to_field_found', { selector });
                         break;
                     }
                 }
@@ -196,9 +260,11 @@ function insertToGmail() {
                     toField.dispatchEvent(new Event('blur', { bubbles: true }));
                     
                     console.log('UAS: To field filled with email:', data.articleToEmail);
+                    window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'to_field_filled', {});
                 }, 100);
             } else {
                 console.warn('UAS: To field not found');
+                window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'to_field_missing', {});
                 // Try alternative method - via clipboard
                 console.log('UAS: Trying alternative method for To field');
                 setTimeout(() => {
@@ -253,6 +319,7 @@ function insertToGmail() {
                         element.closest('[data-name="subject"]')) {
                         subjField = element;
                         console.log('UAS: Found subject field with selector:', selector);
+                        window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'subject_field_found', { selector });
                         break;
                     }
                 }
@@ -280,9 +347,11 @@ function insertToGmail() {
                     subjField.dispatchEvent(new Event('blur', { bubbles: true }));
                     
                     console.log('UAS: Subject field filled with:', data.articleSubject);
+                    window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'subject_field_filled', {});
                 }, 100);
             } else {
                 console.warn('UAS: Subject field not found');
+                window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'subject_field_missing', {});
                 // Try alternative method - log all possible fields
                 setTimeout(() => {
                     const allInputs = document.querySelectorAll('input[type="text"], input:not([type]), textarea');
@@ -306,11 +375,13 @@ function insertToGmail() {
 
         // Clean storage after successful insertion
         chrome.storage.local.remove(['articleContentForGmail', 'articleToEmail', 'articleSubject']);
+        window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'storage_cleared', {});
     });
 }
 
 function waitForGmailCompose(tries = 0) {
     console.log('UAS: Waiting for Gmail compose, attempt:', tries + 1);
+    window.UAS_TRACE && UAS_TRACE.event('compose_wait_attempt', { attempt: tries + 1 });
     
     // Check multiple selectors for body
     const bodySelectors = [
@@ -345,6 +416,7 @@ function waitForGmailCompose(tries = 0) {
     if (bodyFound && toExists && subjectExists) {
         // All elements found, additional delay for full loading
         console.log('UAS: All compose elements found, inserting content');
+        window.UAS_TRACE && UAS_TRACE.event('compose_all_elements_found', {});
         setTimeout(() => {
             insertToGmail();
         }, 500);
@@ -356,6 +428,7 @@ function waitForGmailCompose(tries = 0) {
         debugGmailElements();
         // Try to insert anyway, selectors might have changed
         insertToGmail();
+        window.UAS_TRACE && UAS_TRACE.event('compose_max_attempts_reached', {});
     }
 }
 
@@ -372,6 +445,7 @@ function observeGmailChanges() {
                 if (bodyElements.length > 0 && toElements.length > 0 && subjectElements.length > 0) {
                     console.log('UAS: Gmail composer detected via mutation observer - all elements found');
                     observer.disconnect(); // Stop observing
+                    window.UAS_TRACE && UAS_TRACE.event('mutation_observer_detected_compose', {});
                     
                     // Check that we haven't already inserted content
                     chrome.storage.local.get(['articleContentForGmail'], (data) => {
@@ -405,6 +479,7 @@ function periodicCheck() {
     const interval = setInterval(() => {
         attempts++;
         console.log('UAS: Periodic check attempt:', attempts);
+        window.UAS_TRACE && UAS_TRACE.event('periodic_check_attempt', { attempt: attempts });
         
         chrome.storage.local.get(['articleContentForGmail'], (data) => {
             if (data.articleContentForGmail) {
@@ -425,6 +500,7 @@ function periodicCheck() {
                         // Check that element is visible, large enough and not yet filled
                         if (rect.width > 200 && rect.height > 50 && !hasContent) {
                             console.log('UAS: Found composer via periodic check, inserting content');
+                            window.UAS_TRACE && UAS_TRACE.event('periodic_check_compose_found', {});
                             clearInterval(interval);
                             insertToGmail();
                             return;
@@ -443,6 +519,7 @@ function periodicCheck() {
                     if (rect.width > 300 && rect.height > 100 && !hasContent &&
                         !ariaLabel.includes('to') && !ariaLabel.includes('subject')) {
                         console.log('UAS: Found large editable area via periodic check, inserting content');
+                        window.UAS_TRACE && UAS_TRACE.event('periodic_check_large_editable_found', {});
                         clearInterval(interval);
                         insertToGmail();
                         return;
@@ -454,6 +531,7 @@ function periodicCheck() {
         if (attempts >= maxAttempts) {
             clearInterval(interval);
             console.log('UAS: Periodic check completed');
+            window.UAS_TRACE && UAS_TRACE.event('periodic_check_completed', {});
         }
     }, 1000);
 }

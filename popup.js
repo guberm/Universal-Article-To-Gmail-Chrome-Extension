@@ -86,6 +86,17 @@ function render() {
             }, 10);
         }
     });
+
+    // Load settings
+    chrome.storage.local.get({ userSettings: { clipboardEnabled: true, clipboardPlainTextOnly: false, toastEnabled: true } }, data => {
+        const s = data.userSettings || {};
+        const clipChk = document.getElementById('clipboardEnabledChk');
+        const plainChk = document.getElementById('plainTextOnlyChk');
+        const toastChk = document.getElementById('toastEnabledChk');
+        if (clipChk) clipChk.checked = s.clipboardEnabled !== false; // default true
+        if (plainChk) plainChk.checked = !!s.clipboardPlainTextOnly;
+        if (toastChk) toastChk.checked = s.toastEnabled !== false; // default true
+    });
 }
 
 document.getElementById('addSiteBtn').onclick = ()=>{
@@ -98,6 +109,63 @@ document.getElementById('addSiteBtn').onclick = ()=>{
     });
 };
 
+// Export siteConfigs to a downloadable JSON file
+document.getElementById('exportBtn').onclick = () => {
+    chrome.storage.local.get({ siteConfigs: [] }, d => {
+        try {
+            const json = JSON.stringify(d.siteConfigs, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'siteConfigs.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            alert('Export failed: ' + e.message);
+        }
+    });
+};
+
+// Import siteConfigs from selected JSON file
+document.getElementById('importBtn').onclick = () => {
+    document.getElementById('importFileInput').click();
+};
+
+document.getElementById('importFileInput').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            const parsed = JSON.parse(reader.result);
+            if (!Array.isArray(parsed)) throw new Error('Root JSON value must be an array');
+            // Basic validation and normalization
+            parsed.forEach((cfg, i) => {
+                if (typeof cfg !== 'object' || cfg === null) throw new Error('Config at index ' + i + ' is not an object');
+                if (typeof cfg.hostPattern !== 'string') throw new Error('Missing hostPattern at index ' + i);
+                if (!Array.isArray(cfg.selectors)) throw new Error('Missing selectors array at index ' + i);
+                if (!cfg.selectors.length) cfg.selectors = [''];
+                // Backwards compatibility normalization
+                if (cfg.toEmail && !cfg.defaultRecipient) cfg.defaultRecipient = cfg.toEmail;
+                if (!('name' in cfg)) cfg.name = '';
+                if (!('defaultRecipient' in cfg)) cfg.defaultRecipient = '';
+            });
+            chrome.storage.local.set({ siteConfigs: parsed }, () => {
+                render();
+                alert('Import successful: ' + parsed.length + ' site config(s) loaded');
+            });
+        } catch (err) {
+            alert('Import failed: ' + err.message);
+        } finally {
+            e.target.value = '';
+        }
+    };
+    reader.readAsText(file);
+});
+
 chrome.storage.onChanged.addListener((changes, areaName) => {
     // Only re-render if this wasn't triggered by our own save
     if (areaName === 'local' && changes.siteConfigs && !saveTimeout) {
@@ -105,3 +173,23 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     }
 });
 document.addEventListener('DOMContentLoaded', render);
+
+// Settings change handlers
+document.getElementById('clipboardEnabledChk').addEventListener('change', () => {
+    chrome.storage.local.get({ userSettings: { clipboardEnabled: true, clipboardPlainTextOnly: false, toastEnabled: true } }, d => {
+        d.userSettings.clipboardEnabled = document.getElementById('clipboardEnabledChk').checked;
+        chrome.storage.local.set({ userSettings: d.userSettings });
+    });
+});
+document.getElementById('plainTextOnlyChk').addEventListener('change', () => {
+    chrome.storage.local.get({ userSettings: { clipboardEnabled: true, clipboardPlainTextOnly: false, toastEnabled: true } }, d => {
+        d.userSettings.clipboardPlainTextOnly = document.getElementById('plainTextOnlyChk').checked;
+        chrome.storage.local.set({ userSettings: d.userSettings });
+    });
+});
+document.getElementById('toastEnabledChk').addEventListener('change', () => {
+    chrome.storage.local.get({ userSettings: { clipboardEnabled: true, clipboardPlainTextOnly: false, toastEnabled: true } }, d => {
+        d.userSettings.toastEnabled = document.getElementById('toastEnabledChk').checked;
+        chrome.storage.local.set({ userSettings: d.userSettings });
+    });
+});
