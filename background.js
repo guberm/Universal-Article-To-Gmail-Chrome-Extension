@@ -2,6 +2,11 @@ let lastArticleContent = null;
 const traceBuffer = [];
 const MAX_TRACE = 500;
 
+// Open side panel when extension icon is clicked
+chrome.action.onClicked.addListener((tab) => {
+    chrome.sidePanel.open({ windowId: tab.windowId });
+});
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === "SAVE_ARTICLE") {
         lastArticleContent = msg.payload;
