@@ -17,4 +17,15 @@ Key Points:
 
 If you opt out (toggle off), the permission is effectively unused and no clipboard activity occurs.
 
+Side Panel Permission Justification (sidePanel)
+-------------------------------------------------
+The extension requests the `sidePanel` permission solely to provide a convenient, persistent configuration interface within Chrome's built-in side panel UI. This allows you to manage site configurations, import/export settings, and adjust preferences without disrupting your browsing workflow.
+
+Key Points:
+1. UI-Only: This permission is used exclusively to display the extension's settings interface in Chrome's side panel area; no data collection or transmission occurs.
+2. Local Configuration: All settings and site configurations remain in local browser storage; the side panel merely provides a user-friendly interface to view and edit them.
+3. User-Controlled: You can open/close the side panel at will by clicking the extension icon or using Chrome's side panel controls.
+4. Purpose: Providing a more integrated and accessible settings experience compared to traditional popup windows.
+5. No Network Activity: The side panel permission does not grant any network access or data sharing capabilities.
+
 If you have questions about privacy, please contact us at michael@guber.dev
