@@ -14,13 +14,15 @@ function saveConfigs(configs) {
     }, 300); // Wait 300ms after last keystroke
 }
 
+let searchQuery = '';
+
 function render() {
     chrome.storage.local.get({ siteConfigs: [] }, d => {
-        const configs = d.siteConfigs;
+        const allConfigs = d.siteConfigs;
         
         // Migrate existing toEmail to defaultRecipient for backwards compatibility
         let needsMigration = false;
-        configs.forEach(config => {
+        allConfigs.forEach(config => {
             if (config.toEmail && !config.defaultRecipient) {
                 console.log('UAS Popup: Migrating toEmail to defaultRecipient for', config.name || 'unnamed site');
                 config.defaultRecipient = config.toEmail;
@@ -31,7 +33,17 @@ function render() {
         // Save the migrated config if needed
         if (needsMigration) {
             console.log('UAS Popup: Saving migrated configurations');
-            chrome.storage.local.set({ siteConfigs: configs });
+            chrome.storage.local.set({ siteConfigs: allConfigs });
+        }
+        
+        // Filter by search query
+        let configs = allConfigs;
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            configs = allConfigs.filter(c => 
+                (c.name && c.name.toLowerCase().includes(query)) ||
+                (c.hostPattern && c.hostPattern.toLowerCase().includes(query))
+            );
         }
         
         const root = document.getElementById('configs');
@@ -172,7 +184,19 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         render();
     }
 });
-document.addEventListener('DOMContentLoaded', render);
+
+document.addEventListener('DOMContentLoaded', () => {
+    render();
+    
+    // Search input handler
+    const searchInput = document.getElementById('searchConfigs');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            render();
+        });
+    }
+});
 
 // Settings change handlers
 document.getElementById('clipboardEnabledChk').addEventListener('change', () => {

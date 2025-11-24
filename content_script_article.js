@@ -36,14 +36,20 @@
 
         let btn = document.getElementById('uas-ext-btn');
         if (!btn) {
-            btn = document.createElement('button');
-            btn.id = 'uas-ext-btn';
-            btn.textContent = 'Send Article to Gmail';
-            Object.assign(btn.style, {
+            // Create container for button and dropdown
+            const container = document.createElement('div');
+            container.id = 'uas-ext-container';
+            Object.assign(container.style, {
                 position: 'fixed',
                 right: '20px',
                 bottom: '20px',
-                zIndex: 99999,
+                zIndex: 99999
+            });
+            
+            btn = document.createElement('button');
+            btn.id = 'uas-ext-btn';
+            btn.textContent = 'Send Article to Gmail ▼';
+            Object.assign(btn.style, {
                 padding: '8px 16px',
                 background: '#348ceb',
                 color: '#fff',
@@ -53,41 +59,89 @@
                 border: 'none',
                 boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                display: 'block',
+                width: '100%'
             });
             
-            // Add hover and active states
-            btn.addEventListener('mouseenter', () => {
-                btn.style.background = '#2c7cd1';
-                btn.style.transform = 'translateY(-1px)';
-                btn.style.boxShadow = '0 3px 8px rgba(0,0,0,0.2)';
+            // Create dropdown menu
+            const menu = document.createElement('div');
+            menu.id = 'uas-ext-menu';
+            Object.assign(menu.style, {
+                display: 'none',
+                position: 'absolute',
+                bottom: '45px',
+                right: '0',
+                background: '#fff',
+                border: '1px solid #ddd',
+                borderRadius: '6px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                minWidth: '220px',
+                overflow: 'hidden'
             });
             
-            btn.addEventListener('mouseleave', () => {
-                btn.style.background = '#348ceb';
-                btn.style.transform = 'translateY(0)';
-                btn.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
+            const option1 = document.createElement('div');
+            option1.textContent = 'Send with full content';
+            option1.className = 'uas-menu-option';
+            Object.assign(option1.style, {
+                padding: '10px 14px',
+                cursor: 'pointer',
+                borderBottom: '1px solid #eee',
+                fontSize: '13px',
+                transition: 'background 0.15s'
             });
             
-            btn.addEventListener('mousedown', () => {
-                btn.style.transform = 'translateY(1px)';
+            const option2 = document.createElement('div');
+            option2.textContent = 'Send with URL only';
+            option2.className = 'uas-menu-option';
+            Object.assign(option2.style, {
+                padding: '10px 14px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                transition: 'background 0.15s'
             });
             
-            btn.addEventListener('mouseup', () => {
-                btn.style.transform = 'translateY(-1px)';
+            // Hover effects
+            [option1, option2].forEach(opt => {
+                opt.addEventListener('mouseenter', () => opt.style.background = '#f5f5f5');
+                opt.addEventListener('mouseleave', () => opt.style.background = '#fff');
             });
             
-            btn.onclick = () => {
+            menu.appendChild(option1);
+            menu.appendChild(option2);
+            container.appendChild(menu);
+            container.appendChild(btn);
+            
+            container.appendChild(menu);
+            container.appendChild(btn);
+            
+            // Toggle menu on button click
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+            });
+            
+            // Close menu when clicking outside
+            document.addEventListener('click', () => {
+                menu.style.display = 'none';
+            });
+            
+            // Handle option clicks
+            const handleSend = (useUrlOnly) => {
+                menu.style.display = 'none';
                 const el = findArticleElement(config);
                 if (!el) {
                     alert('Article not found!');
                     window.UAS_TRACE && UAS_TRACE.event('article_click_missing', {});
                     return;
                 }
-                const span = window.UAS_TRACE ? UAS_TRACE.startSpan('extract_and_store', { url: location.href }) : null;
-                const html = `<h1>${document.title}</h1>
+                const span = window.UAS_TRACE ? UAS_TRACE.startSpan('extract_and_store', { url: location.href, mode: useUrlOnly ? 'url-only' : 'full' }) : null;
+                const fullHtml = `<h1>${document.title}</h1>
 <p><strong>Source:</strong> <a href="${location.href}" target="_blank">${location.href}</a></p>
 ${el.outerHTML}`;
+                const urlOnlyHtml = `<p><strong>Source:</strong> <a href="${location.href}" target="_blank">${location.href}</a></p>`;
+                const htmlForGmail = useUrlOnly ? urlOnlyHtml : fullHtml;
+                const htmlForClipboard = fullHtml; // Always copy full content
 
                 // Toast helper (lazy create)
                 function showToast(msg, ok){
@@ -110,23 +164,23 @@ ${el.outerHTML}`;
                     const settings = store.userSettings || {};
                     if (settings.clipboardEnabled !== false) {
                         const copySpan = window.UAS_TRACE ? UAS_TRACE.startSpan('clipboard_copy', {}) : null;
-                        const plainText = html.replace(/<[^>]+>/g,'');
+                        const plainText = htmlForClipboard.replace(/<[^>]+>/g,'');
                         const attemptClipboard = async () => {
                             let success = false;
                             const doHtml = !settings.clipboardPlainTextOnly;
                             try {
                                 if (navigator.clipboard && window.ClipboardItem && doHtml) {
                                     const item = new ClipboardItem({
-                                        'text/html': new Blob([html], { type: 'text/html' }),
+                                        'text/html': new Blob([htmlForClipboard], { type: 'text/html' }),
                                         'text/plain': new Blob([plainText], { type: 'text/plain' })
                                     });
                                     await navigator.clipboard.write([item]);
-                                    window.UAS_TRACE && UAS_TRACE.addEventToSpan(copySpan, 'clipboard_write_api_success', { bytes: html.length, mode:'html+text' });
+                                    window.UAS_TRACE && UAS_TRACE.addEventToSpan(copySpan, 'clipboard_write_api_success', { bytes: htmlForClipboard.length, mode:'html+text' });
                                     success = true;
                                     window.UAS_TRACE && UAS_TRACE.endSpan(copySpan, { method: 'ClipboardItem' });
                                 } else if (navigator.clipboard && navigator.clipboard.writeText) {
-                                    await navigator.clipboard.writeText(settings.clipboardPlainTextOnly ? plainText : html);
-                                    window.UAS_TRACE && UAS_TRACE.addEventToSpan(copySpan, 'clipboard_write_text_success', { bytes: html.length, mode: settings.clipboardPlainTextOnly?'text':'html' });
+                                    await navigator.clipboard.writeText(settings.clipboardPlainTextOnly ? plainText : htmlForClipboard);
+                                    window.UAS_TRACE && UAS_TRACE.addEventToSpan(copySpan, 'clipboard_write_text_success', { bytes: htmlForClipboard.length, mode: settings.clipboardPlainTextOnly?'text':'html' });
                                     success = true;
                                     window.UAS_TRACE && UAS_TRACE.endSpan(copySpan, { method: 'writeText' });
                                 }
@@ -136,7 +190,7 @@ ${el.outerHTML}`;
                             if (!success) {
                                 try {
                                     const ta = document.createElement('textarea');
-                                    ta.value = settings.clipboardPlainTextOnly ? plainText : html;
+                                    ta.value = settings.clipboardPlainTextOnly ? plainText : htmlForClipboard;
                                     ta.style.position = 'fixed';
                                     ta.style.top = '-1000px';
                                     document.body.appendChild(ta);
@@ -160,29 +214,40 @@ ${el.outerHTML}`;
                         };
                         attemptClipboard();
                     }
-                });
-                
-                console.log('UAS: Saving article content to storage');
-                chrome.storage.local.set({
-                    articleContentForGmail: html,
-                    articleToEmail: config.defaultRecipient || config.toEmail || "",
-                    articleSubject: document.title
-                }, () => {
-                    console.log('UAS: Article content saved, opening Gmail');
-                    window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'stored_in_chrome_storage', { bytes: html.length });
-                    // Small delay to ensure storage is saved
-                    setTimeout(() => {
-                        // Open specifically POPUP, not tab
-                        window.open(
-                            'https://mail.google.com/mail/?view=cm&fs=1',
-                            'uas_gmail_popup',
-                            'popup,width=900,height=800,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes'
-                        );
-                        window.UAS_TRACE && UAS_TRACE.endSpan(span, { status: 'opened_gmail_popup' });
-                    }, 100);
+                    
+                    console.log('UAS: Saving article content to storage');
+                    chrome.storage.local.set({
+                        articleContentForGmail: htmlForGmail,
+                        articleToEmail: config.defaultRecipient || config.toEmail || "",
+                        articleSubject: document.title
+                    }, () => {
+                        console.log('UAS: Article content saved, opening Gmail');
+                        window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'stored_in_chrome_storage', { bytes: htmlForGmail.length });
+                        // Small delay to ensure storage is saved
+                        setTimeout(() => {
+                            // Open specifically POPUP, not tab
+                            window.open(
+                                'https://mail.google.com/mail/?view=cm&fs=1',
+                                'uas_gmail_popup',
+                                'popup,width=900,height=800,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes'
+                            );
+                            window.UAS_TRACE && UAS_TRACE.endSpan(span, { status: 'opened_gmail_popup' });
+                        }, 100);
+                    });
                 });
             };
-            document.body.appendChild(btn);
+            
+            option1.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleSend(false);
+            });
+            
+            option2.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleSend(true);
+            });
+            
+            document.body.appendChild(container);
         }
     }
 
