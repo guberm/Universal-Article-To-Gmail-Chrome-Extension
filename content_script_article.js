@@ -19,6 +19,66 @@
         return null;
     }
 
+    function convertRelativeUrls(html) {
+        const baseUrl = `${location.protocol}//${location.host}`;
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        
+        // Convert relative URLs in img src attributes
+        tempDiv.querySelectorAll('img[src]').forEach(img => {
+            const src = img.getAttribute('src');
+            if (src && src.startsWith('/') && !src.startsWith('//')) {
+                img.setAttribute('src', baseUrl + src);
+            }
+        });
+        
+        // Convert relative URLs in srcset attributes
+        tempDiv.querySelectorAll('img[srcset]').forEach(img => {
+            const srcset = img.getAttribute('srcset');
+            if (srcset) {
+                const newSrcset = srcset.split(',').map(part => {
+                    const [url, descriptor] = part.trim().split(/\s+/);
+                    if (url && url.startsWith('/') && !url.startsWith('//')) {
+                        return (baseUrl + url) + (descriptor ? ' ' + descriptor : '');
+                    }
+                    return part.trim();
+                }).join(', ');
+                img.setAttribute('srcset', newSrcset);
+            }
+        });
+        
+        // Convert relative URLs in picture source elements
+        tempDiv.querySelectorAll('source[srcset]').forEach(source => {
+            const srcset = source.getAttribute('srcset');
+            if (srcset) {
+                const newSrcset = srcset.split(',').map(part => {
+                    const [url, descriptor] = part.trim().split(/\s+/);
+                    if (url && url.startsWith('/') && !url.startsWith('//')) {
+                        return (baseUrl + url) + (descriptor ? ' ' + descriptor : '');
+                    }
+                    return part.trim();
+                }).join(', ');
+                source.setAttribute('srcset', newSrcset);
+            }
+        });
+        
+        // Convert relative URLs in background images
+        tempDiv.querySelectorAll('[style*="background"]').forEach(el => {
+            const style = el.getAttribute('style');
+            if (style && style.includes('url(')) {
+                const newStyle = style.replace(/url\(['"]?([^'")\s]+)['"]?\)/g, (match, url) => {
+                    if (url.startsWith('/') && !url.startsWith('//')) {
+                        return `url('${baseUrl}${url}')`;
+                    }
+                    return match;
+                });
+                el.setAttribute('style', newStyle);
+            }
+        });
+        
+        return tempDiv.innerHTML;
+    }
+
     async function addButton(force) {
         if (document.getElementById('uas-ext-btn') && !force) return;
         const configs = await getConfigs();
@@ -136,9 +196,13 @@
                     return;
                 }
                 const span = window.UAS_TRACE ? UAS_TRACE.startSpan('extract_and_store', { url: location.href, mode: useUrlOnly ? 'url-only' : 'full' }) : null;
+                
+                // Convert relative URLs to absolute
+                const articleHtml = convertRelativeUrls(el.outerHTML);
+                
                 const fullHtml = `<h1>${document.title}</h1>
 <p><strong>Source:</strong> <a href="${location.href}" target="_blank">${location.href}</a></p>
-${el.outerHTML}`;
+${articleHtml}`;
                 const urlOnlyHtml = `<p><strong>Source:</strong> <a href="${location.href}" target="_blank">${location.href}</a></p>`;
                 const htmlForGmail = useUrlOnly ? urlOnlyHtml : fullHtml;
                 const htmlForClipboard = fullHtml; // Always copy full content
