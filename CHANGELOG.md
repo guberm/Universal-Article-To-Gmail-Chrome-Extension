@@ -1,141 +1,90 @@
 # Changelog
 
-## [1.6.0] - 2025-07-27
+## [1.6.0] - 2026-05-29
 
-### 2026-05-29 Maintenance
+### Added
+- Refreshed the side panel and popup UI with a sticky header, search clear action, site count, cleaner config cards, duplicate site action, empty states, and improved settings layout.
+- Added more resilient Gmail compose body detection for the `?fs=1&tf=cm` compose popup.
 
-#### Added
-- Refreshed side panel and popup UI with a sticky header, search clear action, site count, cleaner config cards, duplicate site action, empty states, and improved settings layout.
+### Changed
+- Gmail body lookup now uses a shared selector helper across initial wait, mutation observer, periodic checks, and insertion.
+- Gmail compose insertion now retries while the message body is still rendering instead of treating the first missed lookup as a final failure.
+- Site config structural actions now save immediately before re-rendering.
 
-#### Fixed
+### Fixed
 - Site config edits while search is active now save the full configuration list instead of replacing storage with only filtered results.
 - Gmail pending article data is now cleared only after body insertion succeeds, preventing lost articles when compose detection fails or retries.
 - Duplicate Gmail insertion attempts are ignored while an insertion is already in progress.
-- Gmail compose body detection now supports the `?fs=1&tf=cm` compose popup more reliably and retries while the body is still rendering.
 
-### 🎯 Упрощение подхода: копирование как в userscript
+## [1.5.2] - 2025-07-27
 
-#### Изменено
-- **Полная переработка** - используется простой подход как в userscript.js
-- **ClipboardItem с dual format** - text/html + text/plain для максимальной совместимости
-- **Убрана сложная обработка изображений** - оставлены только базовые URL конвертации
-- **Автоматическая вставка в Gmail** через execCommand('paste') и keyboard events
-- **Упрощенные разрешения** - убраны clipboardRead/Write
+### Fixed
+- Converted relative image URLs to absolute URLs before inserting copied article content into Gmail.
 
-#### Добавлено
-- **Функция copyFormattedContent()** - точная копия handleRichClick из userscript
-- **Автоматическая вставка** в Gmail при обнаружении пустого composer
-- **Fallback методы** для вставки (execCommand → keyboard events → manual)
-- **Визуальные уведомления** о статусе копирования и вставки
+## [1.5.1] - 2025-07-27
 
-#### Исправлено
-- **Проблема с поломанными изображениями** решается использованием text/html format
-- **Совместимость с email-клиентами** через стандартные clipboard форматы
-- **Надежность вставки** в Gmail
-
----
+### Added
+- Added search support for site configurations in the side panel.
 
 ## [1.5.0] - 2025-07-27
 
-### 🔄 Переход на работу с буфером обмена для улучшенной надежности
+### Added
+- Added Clipboard API integration as a transfer path between article pages and Gmail.
+- Added structured clipboard payloads with timestamps.
+- Added fallback handling through clipboard, storage, and error recovery paths.
+- Added visual feedback for processing and data source status.
 
-#### Добавлено
-- **Clipboard API интеграция** - основной метод передачи данных между скриптами
-- **Надежная передача данных** - JSON структура в буфере обмена с временными метками
-- **Двойной fallback механизм** - clipboard → storage → error handling
-- **Визуальные уведомления** - показ статуса обработки и источника данных
-- **Автоматическая очистка** - буфер обмена и storage очищаются после использования
+### Changed
+- Switched the primary article transfer path from direct storage-only flow to a clipboard-backed flow.
+- Improved synchronization between article and Gmail content scripts.
+- Added timeout and validation handling for clipboard operations.
 
-#### Изменено
-- **Основной канал передачи данных** переключен с chrome.storage на clipboard API
-- **Улучшенная синхронизация** между article и gmail content scripts
-- **Таймауты и проверки** для clipboard операций
-- **Расширенные разрешения** в manifest.json: clipboardRead, clipboardWrite
+### Fixed
+- Fixed synchronization problems between article extraction and Gmail insertion.
+- Reduced data loss when moving between tabs.
+- Improved reliability for large HTML payload transfers.
 
-#### Исправлено
-- **Проблема с синхронизацией** между извлечением и вставкой статьи
-- **Потеря данных** при переходе между вкладками
-- **Race conditions** в асинхронных операциях
-- **Надежность передачи** больших HTML данных
+## [1.4.1] - 2025-07-27
 
-### 🔧 Техническое улучшение
+### Added
+- Added Chrome side panel support.
 
-#### Добавлено
-- **Permissions проверка** для clipboard API
-- **Structured data format** в буфере обмена с метаданными
-- **Timestamp validation** - данные действительны 2 минуты
-- **Error recovery механизмы** на каждом этапе
-- **Visual feedback** для пользователя о статусе операций
+### Changed
+- Moved configuration management toward the side panel while preserving existing settings and behavior.
 
-#### Документация
-- **Обновлен CHANGELOG.md** с детальным описанием изменений
-- **Увеличена версия** до 1.5.0 в manifest.json
+## [1.4.0] - 2025-07-27
 
----
+### Added
+- Added JSON import and export for site configurations.
+- Added tracing support through `tracing.js`.
+- Added automatic clipboard copy with HTML and plain text modes.
+- Added toast notifications for clipboard success and failure.
+- Added responsive best-fit image sizing in the Gmail compose body.
+- Added persisted user settings under `userSettings`.
 
-## [Unreleased] - 2025-07-27
+## [1.3.1] - 2025-07-27
 
-### 🖼️ Значительные улучшения обработки изображений
+### Added
+- Added clipboard permission groundwork and tracing preparation.
 
-#### Добавлено
-- **Автоматическая конвертация изображений в Base64** для лучшей совместимости с email-клиентами
-- **Email-безопасные стили** для изображений с адаптивным дизайном
-- **Обработка фоновых CSS изображений** - конвертация в обычные изображения
-- **Улучшенные плейсхолдеры** для изображений, которые не удается загрузить
-- **Оптимизированный HTML вывод** с inline стилями для email
-- **Подробные консольные логи** для отладки обработки изображений
-- **Индикатор прогресса** на кнопке при обработке изображений
+## [1.2.0] - 2025-07-27
 
-#### Изменено
-- **Увеличен таймаут загрузки изображений** с 5 до 8 секунд
-- **Уменьшены лимиты размера** для Base64: 600x400px, <500KB
-- **Улучшено сжатие JPEG** с 0.8 до 0.7 для меньшего размера
-- **Упрощена CORS обработка** - сначала пробуем без crossOrigin для same-domain изображений
+### Changed
+- Extended Gmail field selectors for To, Subject, and Body fields.
+- Improved field population with focus and event dispatching.
+- Improved Gmail loading wait mechanisms.
 
-#### Исправлено
-- **Проблема с поломанными изображениями** в email-клиентах получателей
-- **Обработка ошибок SecurityError** при работе с изображениями
-- **Корректная обработка относительных URL** изображений
-- **Fallback механизм** при неудачной конвертации в Base64
+## [1.1.0] - 2025-07-27
 
-### 📧 Улучшения email-совместимости
+### Changed
+- Added multiple selector fallbacks.
+- Added MutationObserver handling for Gmail DOM changes.
+- Improved logging, debugging, timing, and retry behavior.
 
-#### Добавлено
-- **DOCTYPE и meta теги** для корректного отображения в email-клиентах
-- **Inline CSS стили** вместо внешних стилей
-- **Адаптивный дизайн** для мобильных email-клиентов
-- **Структурированный HTML** с семантической разметкой
+## [1.0.0] - 2025-07-27
 
-#### Изменено
-- **Улучшена структура исходящего HTML** с proper email formatting
-- **Добавлены стили для blockquote, code, pre** элементов
-- **Оптимизированы цвета и типография** для лучшей читаемости
-
-### 🔧 Техническое улучшение
-
-#### Добавлено
-- **Детальная обработка ошибок** с специфичными сообщениями
-- **Fallback режим** при критических ошибках обработки
-- **Counting feedback** - показ количества обрабатываемых изображений
-- **Расширенное логирование** для диагностики проблем
-
-#### Документация
-- **EMAIL_IMAGES_GUIDE.md** - подробное руководство по работе с изображениями
-- **Обновлен README.md** с описанием новых возможностей
-- **Создан CHANGELOG.md** для отслеживания изменений
-
-### 🚨 Breaking Changes
-Нет breaking changes - все изменения обратно совместимы.
-
-### 🔗 Migration Guide
-Никаких действий от пользователей не требуется - все улучшения применяются автоматически.
-
----
-
-## Предыдущие версии
-
-### [1.0.0] - Начальный релиз
-- Базовая функциональность извлечения статей
-- Gmail интеграция
-- Настраиваемые селекторы
-- Автоматическое заполнение полей To, Subject, Body
+### Added
+- Added basic article extraction.
+- Added Gmail compose integration.
+- Added configurable site selectors.
+- Added automatic To, Subject, and Body population.

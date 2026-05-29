@@ -2,7 +2,7 @@
 
 A Chrome extension that allows you to easily copy articles with formatting and automatically insert them into Gmail compose. Features configurable selectors for different websites and intelligent field detection.
 
-## 🚀 Features
+## Features
 
 - **One-click article extraction** from any website
 - **Automatic Gmail integration** with compose window pre-filling
@@ -17,7 +17,7 @@ A Chrome extension that allows you to easily copy articles with formatting and a
 - **Toast notifications** for copy success/failure
 - **Responsive image best-fit** sizing in Gmail body
 
-## 📦 Installation
+## Installation
 
 1. **Download or clone** this repository
 2. **Open Chrome** and navigate to `chrome://extensions/`
@@ -26,7 +26,7 @@ A Chrome extension that allows you to easily copy articles with formatting and a
 5. **Pin the extension** to your toolbar for easy access
 6. **Open Side Panel**: Click the extension icon and choose "Open side panel" (or use Chrome side panel toggle and select the extension).
 
-## 🛠 Configuration
+## Configuration
 
 1. **Click the extension icon** to open the configuration popup
 2. **Add site configurations**:
@@ -53,7 +53,7 @@ Host Pattern: dev\.to
 Selectors: .crayons-article__main
 ```
 
-## 📋 Usage
+## Usage
 
 1. **Open side panel** to configure sites (instead of popup)
 2. **Navigate to an article** on a configured website
@@ -80,7 +80,7 @@ Open the popup Settings section to toggle:
 
 **Console Commands (Side Panel/Popup):**
 
-Open side panel → F12 → Console, then use:
+Open side panel, press F12, open the Console tab, then use:
 
 ```javascript
 // List all configs in table format
@@ -105,7 +105,7 @@ chrome.storage.local.get({ siteConfigs: [] }, d => {
   console.log(JSON.stringify(d.siteConfigs, null, 2));
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(JSON.stringify(d.siteConfigs, null, 2));
-    console.log('✓ Copied to clipboard');
+    console.log('Copied to clipboard');
   }
 });
 ```
@@ -115,7 +115,7 @@ Import into old version console:
 chrome.storage.local.set({ siteConfigs: [
   /* paste your JSON array here */
 ]}, () => {
-  console.log('✓ Imported!');
+  console.log('Imported');
   location.reload();
 });
 ```
@@ -134,7 +134,7 @@ chrome.runtime.sendMessage({type:'UAS_TRACE_GET'}, r => console.log(r.traces));
 ### Image Handling
 Inserted article images are auto-adjusted to fit Gmail compose width (`max-width:100%; height:auto;`).
 
-## 🔧 Advanced Features
+## Advanced Features
 
 ### Debug Console Commands
 
@@ -179,7 +179,7 @@ UAS_DEBUG.checkStorage();
 3. **Try opening Gmail in a new tab** instead of popup
 4. **Run debug analysis** to identify correct selectors
 
-## 🏗 Technical Details
+## Technical Details
 
 ### Gmail Field Detection
 
@@ -208,22 +208,22 @@ The extension uses multiple strategies to find Gmail fields:
 3. **Periodic checks** as fallback
 4. **Element validation** (size, visibility, context)
 
-## 📁 File Structure
+## File Structure
 
 ```
-├── manifest.json          # Extension manifest
-├── background.js          # Service worker
-├── content_script_gmail.js    # Gmail integration
-├── content_script_article.js # Article extraction
-├── popup.html             # Configuration interface
-├── popup.js               # Configuration logic
-├── debug.js               # Debug utilities
-├── style.css              # Popup styles
-├── test_gmail.html        # Testing tool
-└── icon128.png            # Extension icon
+|-- manifest.json              # Extension manifest
+|-- background.js              # Service worker
+|-- content_script_gmail.js    # Gmail integration
+|-- content_script_article.js  # Article extraction
+|-- popup.html                 # Configuration interface
+|-- popup.js                   # Configuration logic
+|-- debug.js                   # Debug utilities
+|-- style.css                  # Popup styles
+|-- test_gmail.html            # Testing tool
+`-- icon128.png                # Extension icon
 ```
 
-## 🐛 Known Issues & Solutions
+## Known Issues and Solutions
 
 | Issue | Solution |
 |-------|----------|
@@ -231,12 +231,13 @@ The extension uses multiple strategies to find Gmail fields:
 | Content insertion fails | Check element size validation and visibility |
 | Extension not detecting article | Verify site configuration and selectors |
 
-## 🔄 Version History
+## Version History
 
 ### v1.6.0 - UI Refresh and Reliability Fixes
 - Refreshed side panel and popup UI with cleaner config cards, sticky tools, site count, search clear, duplicate site, and empty states.
 - Fixed filtered config edits so search results no longer overwrite the full saved site list.
 - Fixed Gmail pending article cleanup so stored article data is cleared only after successful body insertion.
+- Improved Gmail compose body detection for the `?fs=1&tf=cm` compose popup and retry flow.
 
 ### v1.4.1 - Side Panel Migration
 - Replaced popup with Chrome side panel (`sidepanel.html`).
@@ -271,7 +272,7 @@ The extension uses multiple strategies to find Gmail fields:
 - Gmail compose integration
 - Configurable site selectors
 
-## 🤝 Contributing
+## Contributing
 
 1. **Fork the repository**
 2. **Create a feature branch**
@@ -279,11 +280,11 @@ The extension uses multiple strategies to find Gmail fields:
 4. **Test thoroughly**
 5. **Submit a pull request**
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🆘 Support
+## Support
 
 If you encounter issues:
 
@@ -294,4 +295,4 @@ If you encounter issues:
 
 ---
 
-**Made with ❤️ for productivity and automation**
+**Made for productivity and automation**
