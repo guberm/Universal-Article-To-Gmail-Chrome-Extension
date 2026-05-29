@@ -1,6 +1,12 @@
 function el(tag, attrs, ...children) {
     const e = document.createElement(tag);
-    if (attrs) for (let k in attrs) e[k] = attrs[k];
+    if (attrs) for (let k in attrs) {
+        if (k.startsWith('data-')) {
+            e.setAttribute(k, attrs[k]);
+        } else {
+            e[k] = attrs[k];
+        }
+    }
     for (const c of children) e.appendChild(typeof c == 'string' ? document.createTextNode(c) : c);
     return e;
 }
@@ -10,8 +16,15 @@ function saveConfigs(configs) {
     // Debounce saving to prevent constant re-rendering while typing
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(() => {
+        saveTimeout = null;
         chrome.storage.local.set({ siteConfigs: configs });
     }, 300); // Wait 300ms after last keystroke
+}
+
+function saveConfigsNow(configs, callback) {
+    clearTimeout(saveTimeout);
+    saveTimeout = null;
+    chrome.storage.local.set({ siteConfigs: configs }, callback);
 }
 
 let searchQuery = '';
@@ -47,6 +60,16 @@ function render() {
         }
         
         const root = document.getElementById('configs');
+        const countEl = document.getElementById('configCount');
+        const searchClearBtn = document.getElementById('clearSearchBtn');
+        if (countEl) {
+            countEl.textContent = searchQuery.trim()
+                ? `${configs.length} of ${allConfigs.length} sites`
+                : `${allConfigs.length} sites`;
+        }
+        if (searchClearBtn) {
+            searchClearBtn.hidden = !searchQuery.trim();
+        }
         
         // Preserve focus information
         const activeElement = document.activeElement;
@@ -61,25 +84,67 @@ function render() {
         }
         
         root.innerHTML = '';
-        configs.forEach((c, idx) => {
+        if (!configs.length) {
+            root.appendChild(el('div', { className: 'empty-state' },
+                el('div', { className: 'empty-title' }, searchQuery.trim() ? 'No matching sites' : 'No sites yet'),
+                el('div', { className: 'empty-text' }, searchQuery.trim() ? 'Clear search or add a new site config.' : 'Add a site config to start sending articles to Gmail.')
+            ));
+            return;
+        }
+
+        configs.forEach((c) => {
+            const configIndex = allConfigs.indexOf(c);
+            const saveAllConfigs = () => saveConfigs(allConfigs);
+            const saveAllConfigsNow = () => saveConfigsNow(allConfigs, render);
+            const cardTitle = c.name || '(unnamed site)';
+            const selectorCountText = `${c.selectors.length} selector${c.selectors.length === 1 ? '' : 's'}`;
             const box = el('div', { className: 'config-box' },
-                el('div', null, 
-                    el('input', { type:'text', value:c.name, placeholder:'Name', oninput:e=>{ c.name=e.target.value; saveConfigs(configs);} }),
-                    el('input', { type:'text', value:c.hostPattern, placeholder:'Host RegExp', style:'margin-left:6px;width:60%;', oninput:e=>{c.hostPattern=e.target.value; saveConfigs(configs);}})
+                el('div', { className: 'config-card-header' },
+                    el('div', { className: 'config-card-title' }, cardTitle),
+                    el('div', { className: 'config-card-meta' }, selectorCountText)
                 ),
-                el('div', { style:'margin-top:8px;' },
-                    el('label', { style:'display:block;font-weight:bold;margin-bottom:4px;' }, 'Default Recipient:'),
-                    el('input', { type:'email', value:c.defaultRecipient||'', placeholder:'email@example.com', style:'width:98%;', oninput:e=>{ c.defaultRecipient=e.target.value; saveConfigs(configs);} })
-                ),
-                el('div', { style:'margin-top:8px;' }, 'Selectors:'),
-                ...c.selectors.map((sel, sidx) =>
-                    el('div', { className:'selector-row' },
-                        el('input', { type:'text', value:sel, oninput:e=>{ c.selectors[sidx]=e.target.value; saveConfigs(configs);} }),
-                        el('button', { className:'small', onclick:()=>{ c.selectors.splice(sidx,1); saveConfigs(configs); render(); } }, '✕')
+                el('div', { className: 'field-grid' },
+                    el('label', { className: 'field-label' }, 'Name',
+                        el('input', { type:'text', value:c.name, placeholder:'Website name', oninput:e=>{ c.name=e.target.value; saveAllConfigs();} })
+                    ),
+                    el('label', { className: 'field-label' }, 'Host pattern',
+                        el('input', { type:'text', value:c.hostPattern, placeholder:'example\\.com or https://site.com', oninput:e=>{c.hostPattern=e.target.value; saveAllConfigs();}})
+                    ),
+                    el('label', { className: 'field-label wide' }, 'Default recipient',
+                        el('input', { type:'email', value:c.defaultRecipient||'', placeholder:'email@example.com', oninput:e=>{ c.defaultRecipient=e.target.value; saveAllConfigs();} })
                     )
                 ),
-                el('button', { className:'small', onclick:()=>{ c.selectors.push(''); saveConfigs(configs); render(); } }, '+ selector'),
-                el('button', { className:'small', onclick:()=>{ configs.splice(idx,1); saveConfigs(configs); render(); }, style:'float:right;background:#fbb;' }, 'Delete site')
+                el('div', { className: 'section-row' },
+                    el('span', { className: 'section-title' }, 'Selectors'),
+                    el('button', { className:'small secondary', type:'button', onclick:()=>{ c.selectors.push(''); saveAllConfigsNow(); } }, '+ Selector')
+                ),
+                ...c.selectors.map((sel, sidx) =>
+                    el('div', { className:'selector-row' },
+                        el('input', { type:'text', value:sel, oninput:e=>{ c.selectors[sidx]=e.target.value; saveAllConfigs();} }),
+                        el('button', { className:'icon-button danger-lite', type:'button', title:'Remove selector', onclick:()=>{ c.selectors.splice(sidx,1); saveAllConfigsNow(); } }, 'x')
+                    )
+                ),
+                el('div', { className: 'card-actions' },
+                    el('button', { className:'small secondary', type:'button', onclick:()=>{
+                        if (configIndex >= 0) {
+                            const copy = {
+                                ...c,
+                                name: `${c.name || 'Site'} copy`,
+                                selectors: Array.isArray(c.selectors) ? [...c.selectors] : ['']
+                            };
+                            allConfigs.splice(configIndex + 1, 0, copy);
+                            saveAllConfigsNow();
+                        }
+                    } }, 'Duplicate'),
+                el('button', { className:'small', onclick:()=>{
+                    if (configIndex >= 0) {
+                        allConfigs.splice(configIndex, 1);
+                        saveAllConfigsNow();
+                    } else {
+                        render();
+                    }
+                } }, 'Delete')
+                )
             );
             root.appendChild(box);
         });
@@ -194,6 +259,16 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.addEventListener('input', (e) => {
             searchQuery = e.target.value;
             render();
+        });
+    }
+
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    if (clearSearchBtn && searchInput) {
+        clearSearchBtn.addEventListener('click', () => {
+            searchQuery = '';
+            searchInput.value = '';
+            render();
+            searchInput.focus();
         });
     }
 });

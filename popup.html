@@ -2,32 +2,50 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Article Selector Config</title>
+    <title>Universal Article to Gmail</title>
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
-    <h2>Site Configs</h2>
-    <div id="configs"></div>
-    <hr>
-    <button id="addSiteBtn">Add Site</button>
-    <div style="margin-top:12px;">
-        <button id="exportBtn" style="margin-right:6px;">Export JSON</button>
-        <button id="importBtn" style="margin-right:6px;">Import JSON</button>
-        <input type="file" id="importFileInput" accept="application/json" style="display:none;" />
-    </div>
-    <hr>
-    <h3 style="margin-top:10px;">Settings</h3>
-    <div id="settings">
-        <label style="display:block;margin-bottom:6px;">
-            <input type="checkbox" id="clipboardEnabledChk"> Enable automatic clipboard copy
-        </label>
-        <label style="display:block;margin-bottom:6px;">
-            <input type="checkbox" id="plainTextOnlyChk"> Copy as plain text only
-        </label>
-        <label style="display:block;margin-bottom:6px;">
-            <input type="checkbox" id="toastEnabledChk"> Show copy success/failure toast
-        </label>
-    </div>
+<body class="panel-body popup-body">
+    <header class="app-header">
+        <div>
+            <h1>Universal Article to Gmail</h1>
+            <div id="configCount" class="subtle">0 sites</div>
+        </div>
+        <button id="addSiteBtn" class="primary" type="button">Add Site</button>
+    </header>
+
+    <main class="app-main">
+        <section class="toolbar" aria-label="Configuration tools">
+            <div class="search-wrap">
+                <input type="text" id="searchConfigs" placeholder="Search name or host pattern">
+                <button id="clearSearchBtn" class="icon-button" type="button" hidden title="Clear search">x</button>
+            </div>
+            <div class="toolbar-actions">
+                <button id="exportBtn" class="secondary" type="button">Export</button>
+                <button id="importBtn" class="secondary" type="button">Import</button>
+                <input type="file" id="importFileInput" accept="application/json" hidden>
+            </div>
+        </section>
+
+        <section id="configs" class="configs-list"></section>
+
+        <section class="settings-panel">
+            <div class="settings-title">Settings</div>
+            <label class="check-row">
+                <input type="checkbox" id="clipboardEnabledChk">
+                <span>Automatic clipboard copy</span>
+            </label>
+            <label class="check-row">
+                <input type="checkbox" id="plainTextOnlyChk">
+                <span>Copy as plain text only</span>
+            </label>
+            <label class="check-row">
+                <input type="checkbox" id="toastEnabledChk">
+                <span>Show copy toast</span>
+            </label>
+        </section>
+    </main>
+
     <script src="popup.js"></script>
 </body>
 </html>

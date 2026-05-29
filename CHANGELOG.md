@@ -2,6 +2,17 @@
 
 ## [1.6.0] - 2025-07-27
 
+### 2026-05-29 Maintenance
+
+#### Added
+- Refreshed side panel and popup UI with a sticky header, search clear action, site count, cleaner config cards, duplicate site action, empty states, and improved settings layout.
+
+#### Fixed
+- Site config edits while search is active now save the full configuration list instead of replacing storage with only filtered results.
+- Gmail pending article data is now cleared only after body insertion succeeds, preventing lost articles when compose detection fails or retries.
+- Duplicate Gmail insertion attempts are ignored while an insertion is already in progress.
+- Gmail compose body detection now supports the `?fs=1&tf=cm` compose popup more reliably and retries while the body is still rendering.
+
 ### 🎯 Упрощение подхода: копирование как в userscript
 
 #### Изменено

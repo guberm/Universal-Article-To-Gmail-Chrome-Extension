@@ -1,3 +1,99 @@
+let gmailInsertInProgress = false;
+let gmailBodyRetryCount = 0;
+const MAX_GMAIL_BODY_RETRIES = 12;
+const GMAIL_BODY_SELECTORS = [
+    'div[aria-label="Message Body"]',
+    'div[contenteditable="true"][aria-label="Message Body"]',
+    'div[g_editable="true"][contenteditable="true"]',
+    'div.Am.Al.editable[contenteditable="true"]',
+    'div[contenteditable="true"][role="textbox"]',
+    '.editable[contenteditable="true"]',
+    'div[aria-label*="Message" i][contenteditable="true"]',
+    'div[aria-label*="Body" i][contenteditable="true"]',
+    'div[role="textbox"][g_editable="true"]',
+    'div[aria-multiline="true"][contenteditable="true"]',
+    'div[dir="ltr"][contenteditable="true"]',
+    '[contenteditable="true"]:not([aria-label*="To" i]):not([aria-label*="Subject" i])'
+];
+
+function clearPendingArticle(span) {
+    chrome.storage.local.remove(['articleContentForGmail', 'articleToEmail', 'articleSubject'], () => {
+        console.log('UAS: Cleared pending article content after successful insertion');
+        window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'storage_cleared', {});
+        gmailInsertInProgress = false;
+        gmailBodyRetryCount = 0;
+    });
+}
+
+function isLikelyGmailBody(element) {
+    if (!element || element.getAttribute('contenteditable') !== 'true') return false;
+
+    const ariaLabel = element.getAttribute('aria-label')?.toLowerCase() || '';
+    const className = String(element.className || '').toLowerCase();
+    const role = element.getAttribute('role')?.toLowerCase() || '';
+    const editable = element.getAttribute('g_editable') === 'true';
+    const rect = element.getBoundingClientRect();
+    const style = window.getComputedStyle ? window.getComputedStyle(element) : null;
+
+    if (style && (style.display === 'none' || style.visibility === 'hidden')) return false;
+    if (rect.width < 120) return false;
+
+    const looksLikeRecipient =
+        /\b(to|cc|bcc)\b/.test(ariaLabel) ||
+        ariaLabel.includes('recipient') ||
+        className.includes('subject') ||
+        element.closest('[name="to"], [data-name="to"], [aria-label*="recipient" i], [aria-label*="subject" i]');
+    if (looksLikeRecipient) return false;
+
+    return (
+        ariaLabel.includes('message') ||
+        ariaLabel.includes('body') ||
+        editable ||
+        role === 'textbox' ||
+        (className.includes('editable') && (className.includes('am') || className.includes('al')))
+    );
+}
+
+function findGmailBodyElement(options = {}) {
+    for (const selector of GMAIL_BODY_SELECTORS) {
+        const elements = document.querySelectorAll(selector);
+        for (const element of elements) {
+            if (isLikelyGmailBody(element)) {
+                const rect = element.getBoundingClientRect();
+                if (!options.quiet) {
+                    console.log('UAS: Found body element with selector:', selector, 'size:', rect.width + 'x' + rect.height);
+                    window.UAS_TRACE && UAS_TRACE.event('gmail_body_found', {
+                        selector,
+                        w: Math.round(rect.width),
+                        h: Math.round(rect.height)
+                    });
+                }
+                return element;
+            }
+        }
+    }
+    return null;
+}
+
+function scheduleBodyRetry(span) {
+    gmailInsertInProgress = false;
+    gmailBodyRetryCount++;
+
+    if (gmailBodyRetryCount > MAX_GMAIL_BODY_RETRIES) {
+        console.log('UAS: Body element still not found after retries; keeping pending article in storage');
+        window.UAS_TRACE && UAS_TRACE.endSpan(span, { status: 'body_not_found_after_retries' });
+        return;
+    }
+
+    const delay = Math.min(500 + gmailBodyRetryCount * 250, 2000);
+    console.log('UAS: Body element not ready, retrying insert attempt:', gmailBodyRetryCount, 'delay:', delay);
+    window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'gmail_body_retry_scheduled', {
+        retry: gmailBodyRetryCount,
+        delay
+    });
+    setTimeout(() => insertToGmail(), delay);
+}
+
 // Debug function - helps find correct Gmail selectors
 function debugGmailElements() {
     console.log('=== UAS DEBUG: Gmail Elements Analysis ===');
@@ -29,11 +125,19 @@ function debugGmailElements() {
 }
 
 function insertToGmail() {
+    if (gmailInsertInProgress) {
+        console.log('UAS: Gmail insertion already in progress, skipping duplicate attempt');
+        window.UAS_TRACE && UAS_TRACE.event('gmail_insert_duplicate_skipped', {});
+        return;
+    }
+
+    gmailInsertInProgress = true;
     const span = window.UAS_TRACE ? UAS_TRACE.startSpan('gmail_insert', {}) : null;
     chrome.storage.local.get(['articleContentForGmail', 'articleToEmail', 'articleSubject'], data => {
         if (!data.articleContentForGmail) {
             console.log('UAS: No article content found in storage');
             window.UAS_TRACE && UAS_TRACE.event('gmail_no_content', {});
+            gmailInsertInProgress = false;
             return;
         }
 
@@ -42,46 +146,7 @@ function insertToGmail() {
         // Call debug function to analyze elements
         debugGmailElements();
 
-        // Body - try multiple selectors
-        const bodySelectors = [
-            'div[aria-label="Message Body"]',
-            'div[contenteditable="true"][aria-label="Message Body"]',
-            'div[contenteditable="true"][role="textbox"]',
-            'div[g_editable="true"]',
-            '.editable[contenteditable="true"]',
-            // Additional selectors for message body
-            'div[aria-label*="Message" i][contenteditable="true"]',
-            'div[role="textbox"][contenteditable="true"]',
-            'div.Am.Al.editable',
-            'div[dir="ltr"][contenteditable="true"]',
-            '[contenteditable="true"]:not([aria-label*="To"]):not([aria-label*="Subject"])'
-        ];
-        
-        let bodyDiv = null;
-        for (const selector of bodySelectors) {
-            const elements = document.querySelectorAll(selector);
-            for (const element of elements) {
-                // Check that this is actually the message body, not To or Subject field
-                const ariaLabel = element.getAttribute('aria-label')?.toLowerCase() || '';
-                const className = element.className.toLowerCase();
-                
-                // Exclude elements that are clearly not the message body
-                if (ariaLabel.includes('to') || ariaLabel.includes('subject') || 
-                    ariaLabel.includes('recipient') || className.includes('subject')) {
-                    continue;
-                }
-                
-                // Check element size - message body is usually larger
-                const rect = element.getBoundingClientRect();
-                if (rect.height > 50 && rect.width > 200) {
-                    bodyDiv = element;
-                    console.log('UAS: Found body element with selector:', selector, 'size:', rect.width + 'x' + rect.height);
-                    window.UAS_TRACE && UAS_TRACE.event('gmail_body_found', { selector, w: Math.round(rect.width), h: Math.round(rect.height) });
-                    break;
-                }
-            }
-            if (bodyDiv) break;
-        }
+        const bodyDiv = findGmailBodyElement();
         
         if (bodyDiv) {
             // Focus on element and wait a bit
@@ -160,20 +225,24 @@ function insertToGmail() {
                 
                 // Additional check - make sure content was actually inserted
                 setTimeout(() => {
-                    if (bodyDiv.innerHTML.includes('Source:')) {
+                    if (bodyDiv.innerHTML.includes('Source:') || bodyDiv.textContent.includes('Source:')) {
                         console.log('UAS: Content insertion verified successfully');
                         window.UAS_TRACE && UAS_TRACE.endSpan(span, { status: 'success' });
+                        clearPendingArticle(span);
                     } else {
                         console.warn('UAS: Content insertion may have failed, retrying...');
                         bodyDiv.innerHTML = data.articleContentForGmail;
                         bodyDiv.dispatchEvent(new Event('input', { bubbles: true }));
+                        bodyDiv.dispatchEvent(new Event('change', { bubbles: true }));
+                        bodyDiv.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
                         window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'retry_body_insert', {});
+                        window.UAS_TRACE && UAS_TRACE.endSpan(span, { status: 'retry_success' });
+                        clearPendingArticle(span);
                     }
                 }, 200);
             }, 100);
         } else {
-            console.warn('UAS: Body element not found');
-            window.UAS_TRACE && UAS_TRACE.endSpan(span, { status: 'body_not_found' });
+            scheduleBodyRetry(span);
             // Log all contenteditable elements for debugging
             setTimeout(() => {
                 const allEditables = document.querySelectorAll('[contenteditable="true"]');
@@ -373,9 +442,6 @@ function insertToGmail() {
             }
         }
 
-        // Clean storage after successful insertion
-        chrome.storage.local.remove(['articleContentForGmail', 'articleToEmail', 'articleSubject']);
-        window.UAS_TRACE && UAS_TRACE.addEventToSpan(span, 'storage_cleared', {});
     });
 }
 
@@ -383,29 +449,7 @@ function waitForGmailCompose(tries = 0) {
     console.log('UAS: Waiting for Gmail compose, attempt:', tries + 1);
     window.UAS_TRACE && UAS_TRACE.event('compose_wait_attempt', { attempt: tries + 1 });
     
-    // Check multiple selectors for body
-    const bodySelectors = [
-        'div[aria-label="Message Body"]',
-        'div[contenteditable="true"][aria-label="Message Body"]',
-        'div[contenteditable="true"][role="textbox"]',
-        'div[g_editable="true"]',
-        '.editable[contenteditable="true"]'
-    ];
-    
-    let bodyFound = false;
-    let foundElement = null;
-    for (const selector of bodySelectors) {
-        foundElement = document.querySelector(selector);
-        if (foundElement) {
-            const rect = foundElement.getBoundingClientRect();
-            // Check that element is visible and large enough
-            if (rect.width > 200 && rect.height > 50) {
-                bodyFound = true;
-                console.log('UAS: Gmail compose body found with selector:', selector, 'size:', rect.width + 'x' + rect.height);
-                break;
-            }
-        }
-    }
+    const bodyFound = !!findGmailBodyElement({ quiet: true });
     
     // Additionally check for To and Subject fields
     const toExists = document.querySelector('input[aria-label*="To" i], textarea[aria-label*="To" i], input[name="to"], textarea[name="to"]');
@@ -438,11 +482,11 @@ function observeGmailChanges() {
         for (const mutation of mutations) {
             if (mutation.type === 'childList') {
                 // Look for compose elements
-                const bodyElements = document.querySelectorAll('div[aria-label="Message Body"], div[contenteditable="true"][role="textbox"]');
+                const bodyElement = findGmailBodyElement({ quiet: true });
                 const toElements = document.querySelectorAll('input[aria-label*="To" i], textarea[aria-label*="To" i]');
                 const subjectElements = document.querySelectorAll('input[aria-label*="Subject" i], input[name="subject"]');
                 
-                if (bodyElements.length > 0 && toElements.length > 0 && subjectElements.length > 0) {
+                if (bodyElement && toElements.length > 0 && subjectElements.length > 0) {
                     console.log('UAS: Gmail composer detected via mutation observer - all elements found');
                     observer.disconnect(); // Stop observing
                     window.UAS_TRACE && UAS_TRACE.event('mutation_observer_detected_compose', {});
@@ -483,29 +527,13 @@ function periodicCheck() {
         
         chrome.storage.local.get(['articleContentForGmail'], (data) => {
             if (data.articleContentForGmail) {
-                const bodySelectors = [
-                    'div[aria-label="Message Body"]',
-                    'div[contenteditable="true"][aria-label="Message Body"]',
-                    'div[contenteditable="true"][role="textbox"]',
-                    'div[g_editable="true"]',
-                    '.editable[contenteditable="true"]'
-                ];
-                
-                for (const selector of bodySelectors) {
-                    const element = document.querySelector(selector);
-                    if (element) {
-                        const rect = element.getBoundingClientRect();
-                        const hasContent = element.innerHTML.includes('Source:');
-                        
-                        // Check that element is visible, large enough and not yet filled
-                        if (rect.width > 200 && rect.height > 50 && !hasContent) {
-                            console.log('UAS: Found composer via periodic check, inserting content');
-                            window.UAS_TRACE && UAS_TRACE.event('periodic_check_compose_found', {});
-                            clearInterval(interval);
-                            insertToGmail();
-                            return;
-                        }
-                    }
+                const bodyElement = findGmailBodyElement({ quiet: true });
+                if (bodyElement && !bodyElement.innerHTML.includes('Source:')) {
+                    console.log('UAS: Found composer via periodic check, inserting content');
+                    window.UAS_TRACE && UAS_TRACE.event('periodic_check_compose_found', {});
+                    clearInterval(interval);
+                    insertToGmail();
+                    return;
                 }
                 
                 // If not found through main selectors, try alternatives

@@ -233,6 +233,11 @@ The extension uses multiple strategies to find Gmail fields:
 
 ## 🔄 Version History
 
+### v1.6.0 - UI Refresh and Reliability Fixes
+- Refreshed side panel and popup UI with cleaner config cards, sticky tools, site count, search clear, duplicate site, and empty states.
+- Fixed filtered config edits so search results no longer overwrite the full saved site list.
+- Fixed Gmail pending article cleanup so stored article data is cleared only after successful body insertion.
+
 ### v1.4.1 - Side Panel Migration
 - Replaced popup with Chrome side panel (`sidepanel.html`).
 - Updated manifest to include `side_panel` entry.
