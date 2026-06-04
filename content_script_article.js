@@ -11,13 +11,176 @@
         return null;
     }
 
+    function isXPathSelector(selector) {
+        return /^(\/|\.\/|\(|id\()/i.test(selector.trim());
+    }
+
+    function findElementBySelector(selector) {
+        const value = (selector || '').trim();
+        if (!value) return null;
+
+        if (isXPathSelector(value)) {
+            try {
+                const result = document.evaluate(value, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                if (result.singleNodeValue && result.singleNodeValue.nodeType === Node.ELEMENT_NODE) {
+                    return result.singleNodeValue;
+                }
+            } catch (e) {
+                console.warn('UAS: Invalid XPath selector:', value, e);
+            }
+            return null;
+        }
+
+        try {
+            return document.querySelector(value);
+        } catch (e) {
+            console.warn('UAS: Invalid CSS selector:', value, e);
+            return null;
+        }
+    }
+
     function findArticleElement(cfg) {
         for (const sel of cfg.selectors) {
-            const el = document.querySelector(sel);
+            const el = findElementBySelector(sel);
             if (el) return el;
         }
         return null;
     }
+
+    function getIndexedXPath(el) {
+        const segments = [];
+        for (let node = el; node && node.nodeType === Node.ELEMENT_NODE; node = node.parentElement) {
+            const tagName = node.localName.toLowerCase();
+            let index = 1;
+            for (let sibling = node.previousElementSibling; sibling; sibling = sibling.previousElementSibling) {
+                if (sibling.localName.toLowerCase() === tagName) index++;
+            }
+            segments.unshift(`${tagName}[${index}]`);
+        }
+        return '/' + segments.join('/');
+    }
+
+    function isExtensionPickerElement(el) {
+        return !!(el && el.closest && el.closest('#uas-xpath-picker-overlay, #uas-xpath-picker-tooltip, #uas-ext-container'));
+    }
+
+    function getPickTarget(clientX, clientY) {
+        const elements = document.elementsFromPoint(clientX, clientY);
+        return elements.find(el => el && el.nodeType === Node.ELEMENT_NODE && !isExtensionPickerElement(el)) || null;
+    }
+
+    let xpathPicker = null;
+
+    function stopXPathPicker(result) {
+        if (!xpathPicker) return;
+        const state = xpathPicker;
+        xpathPicker = null;
+
+        document.removeEventListener('mousemove', state.onMouseMove, true);
+        document.removeEventListener('mousedown', state.onMouseDown, true);
+        document.removeEventListener('keydown', state.onKeyDown, true);
+        state.overlay.remove();
+        state.tooltip.remove();
+
+        if (result) state.respond(result);
+    }
+
+    function updateXPathHighlight(target, state, clientX, clientY) {
+        if (!target) {
+            state.overlay.style.display = 'none';
+            state.tooltip.style.display = 'none';
+            return;
+        }
+
+        const rect = target.getBoundingClientRect();
+        Object.assign(state.overlay.style, {
+            display: 'block',
+            left: `${rect.left}px`,
+            top: `${rect.top}px`,
+            width: `${rect.width}px`,
+            height: `${rect.height}px`
+        });
+
+        state.tooltip.textContent = `${target.localName.toLowerCase()} - click to use XPath, Esc to cancel`;
+        Object.assign(state.tooltip.style, {
+            display: 'block',
+            left: `${Math.min(clientX + 12, window.innerWidth - 260)}px`,
+            top: `${Math.min(clientY + 12, window.innerHeight - 42)}px`
+        });
+    }
+
+    function startXPathPicker(sendResponse) {
+        if (xpathPicker) stopXPathPicker({ cancelled: true });
+
+        const overlay = document.createElement('div');
+        overlay.id = 'uas-xpath-picker-overlay';
+        Object.assign(overlay.style, {
+            position: 'fixed',
+            display: 'none',
+            zIndex: 2147483647,
+            pointerEvents: 'none',
+            border: '2px solid #1769e0',
+            background: 'rgba(23, 105, 224, 0.16)',
+            boxShadow: '0 0 0 1px rgba(255,255,255,0.85) inset'
+        });
+
+        const tooltip = document.createElement('div');
+        tooltip.id = 'uas-xpath-picker-tooltip';
+        Object.assign(tooltip.style, {
+            position: 'fixed',
+            display: 'none',
+            zIndex: 2147483647,
+            pointerEvents: 'none',
+            maxWidth: '248px',
+            padding: '6px 8px',
+            background: '#18212f',
+            color: '#fff',
+            borderRadius: '5px',
+            font: '12px/1.35 Arial, sans-serif',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+        });
+
+        const state = {
+            overlay,
+            tooltip,
+            respond: sendResponse,
+            onMouseMove(e) {
+                updateXPathHighlight(getPickTarget(e.clientX, e.clientY), state, e.clientX, e.clientY);
+            },
+            onMouseDown(e) {
+                const target = getPickTarget(e.clientX, e.clientY);
+                if (!target) return;
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                const xpath = getIndexedXPath(target);
+                const result = document.evaluate(xpath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+                stopXPathPicker({ xpath, unique: result.snapshotLength === 1 });
+            },
+            onKeyDown(e) {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    stopXPathPicker({ cancelled: true });
+                }
+            }
+        };
+
+        document.body.appendChild(overlay);
+        document.body.appendChild(tooltip);
+        document.addEventListener('mousemove', state.onMouseMove, true);
+        document.addEventListener('mousedown', state.onMouseDown, true);
+        document.addEventListener('keydown', state.onKeyDown, true);
+        xpathPicker = state;
+    }
+
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+        if (msg && msg.type === 'UAS_START_XPATH_PICKER') {
+            startXPathPicker(sendResponse);
+            return true;
+        }
+        return false;
+    });
 
     function convertRelativeUrls(html) {
         const baseUrl = `${location.protocol}//${location.host}`;

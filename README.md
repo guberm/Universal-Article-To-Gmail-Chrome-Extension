@@ -8,6 +8,8 @@ A Chrome extension that allows you to easily copy articles with formatting and a
 - **Automatic Gmail integration** with compose window pre-filling
 - **Default recipient auto-fill** - set default email addresses per site
 - **Configurable selectors** for different websites
+- **Interactive XPath picker** for selecting article elements directly from the active page
+- **CSS and XPath selector support** for article extraction
 - **Intelligent field detection** for To, Subject, and Body fields
 - **Enhanced stability** with multiple fallback selectors
 - **Comprehensive debugging tools** for troubleshooting
@@ -32,7 +34,8 @@ A Chrome extension that allows you to easily copy articles with formatting and a
 2. **Add site configurations**:
    - **Name**: Friendly name for the site
    - **Host Pattern**: Regular expression matching the site URL
-   - **Selectors**: CSS selectors for article content (multiple selectors supported)
+   - **Selectors**: CSS selectors or XPath selectors for article content (multiple selectors supported)
+   - Use **Pick** next to a selector to hover elements on the active page and click one to save a unique indexed XPath.
 
 ### Example Configurations
 
@@ -232,6 +235,11 @@ The extension uses multiple strategies to find Gmail fields:
 | Extension not detecting article | Verify site configuration and selectors |
 
 ## Version History
+
+### v1.6.1 - Interactive XPath Picker
+- Added a `Pick` action for selector fields that highlights page elements and inserts a unique indexed XPath on click.
+- Added XPath support to article extraction while keeping existing CSS selectors compatible.
+- Fixed rule focus restoration so duplicate selector or host values no longer move editing focus to another rule.
 
 ### v1.6.0 - UI Refresh and Reliability Fixes
 - Refreshed side panel and popup UI with cleaner config cards, sticky tools, site count, search clear, duplicate site, and empty states.

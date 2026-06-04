@@ -28,6 +28,38 @@ function saveConfigsNow(configs, callback) {
 }
 
 let searchQuery = '';
+let activeXPathPickerKey = null;
+
+async function startXPathPicker(configIndex, selectorIndex) {
+    const pickerKey = `config:${configIndex}:selector:${selectorIndex}`;
+    activeXPathPickerKey = pickerKey;
+    render();
+
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab || !tab.id) throw new Error('No active tab found');
+
+        const response = await chrome.tabs.sendMessage(tab.id, { type: 'UAS_START_XPATH_PICKER' });
+        if (!response || !response.xpath) return;
+
+        chrome.storage.local.get({ siteConfigs: [] }, d => {
+            const configs = d.siteConfigs;
+            const config = configs[configIndex];
+            if (!config || !Array.isArray(config.selectors) || selectorIndex >= config.selectors.length) {
+                alert('Selector field no longer exists. Add a selector and try again.');
+                return;
+            }
+            config.selectors[selectorIndex] = response.xpath;
+            saveConfigsNow(configs, render);
+        });
+    } catch (err) {
+        const message = err && err.message ? err.message : String(err);
+        alert('XPath picker failed: ' + message + '\n\nOpen the target site in the active tab and try again.');
+    } finally {
+        activeXPathPickerKey = null;
+        render();
+    }
+}
 
 function render() {
     chrome.storage.local.get({ siteConfigs: [] }, d => {
@@ -74,12 +106,11 @@ function render() {
         // Preserve focus information
         const activeElement = document.activeElement;
         let focusInfo = null;
-        if (activeElement && activeElement.tagName === 'INPUT') {
+        if (activeElement && activeElement.tagName === 'INPUT' && root.contains(activeElement) && activeElement.dataset.focusKey) {
             focusInfo = {
-                value: activeElement.value,
+                focusKey: activeElement.dataset.focusKey,
                 selectionStart: activeElement.selectionStart,
-                selectionEnd: activeElement.selectionEnd,
-                placeholder: activeElement.placeholder
+                selectionEnd: activeElement.selectionEnd
             };
         }
         
@@ -94,6 +125,7 @@ function render() {
 
         configs.forEach((c) => {
             const configIndex = allConfigs.indexOf(c);
+            const focusKey = (field, index) => `config:${configIndex}:${field}${index === undefined ? '' : `:${index}`}`;
             const saveAllConfigs = () => saveConfigs(allConfigs);
             const saveAllConfigsNow = () => saveConfigsNow(allConfigs, render);
             const cardTitle = c.name || '(unnamed site)';
@@ -105,13 +137,13 @@ function render() {
                 ),
                 el('div', { className: 'field-grid' },
                     el('label', { className: 'field-label' }, 'Name',
-                        el('input', { type:'text', value:c.name, placeholder:'Website name', oninput:e=>{ c.name=e.target.value; saveAllConfigs();} })
+                        el('input', { type:'text', value:c.name, placeholder:'Website name', 'data-focus-key':focusKey('name'), oninput:e=>{ c.name=e.target.value; saveAllConfigs();} })
                     ),
                     el('label', { className: 'field-label' }, 'Host pattern',
-                        el('input', { type:'text', value:c.hostPattern, placeholder:'example\\.com or https://site.com', oninput:e=>{c.hostPattern=e.target.value; saveAllConfigs();}})
+                        el('input', { type:'text', value:c.hostPattern, placeholder:'example\\.com or https://site.com', 'data-focus-key':focusKey('hostPattern'), oninput:e=>{c.hostPattern=e.target.value; saveAllConfigs();}})
                     ),
                     el('label', { className: 'field-label wide' }, 'Default recipient',
-                        el('input', { type:'email', value:c.defaultRecipient||'', placeholder:'email@example.com', oninput:e=>{ c.defaultRecipient=e.target.value; saveAllConfigs();} })
+                        el('input', { type:'email', value:c.defaultRecipient||'', placeholder:'email@example.com', 'data-focus-key':focusKey('defaultRecipient'), oninput:e=>{ c.defaultRecipient=e.target.value; saveAllConfigs();} })
                     )
                 ),
                 el('div', { className: 'section-row' },
@@ -120,7 +152,8 @@ function render() {
                 ),
                 ...c.selectors.map((sel, sidx) =>
                     el('div', { className:'selector-row' },
-                        el('input', { type:'text', value:sel, oninput:e=>{ c.selectors[sidx]=e.target.value; saveAllConfigs();} }),
+                        el('input', { type:'text', value:sel, 'data-focus-key':focusKey('selector', sidx), oninput:e=>{ c.selectors[sidx]=e.target.value; saveAllConfigs();} }),
+                        el('button', { className:'small secondary selector-pick-btn', type:'button', disabled: activeXPathPickerKey === focusKey('selector', sidx), title:'Pick XPath from active tab', onclick:()=>{ startXPathPicker(configIndex, sidx); } }, activeXPathPickerKey === focusKey('selector', sidx) ? 'Picking...' : 'Pick'),
                         el('button', { className:'icon-button danger-lite', type:'button', title:'Remove selector', onclick:()=>{ c.selectors.splice(sidx,1); saveAllConfigsNow(); } }, 'x')
                     )
                 ),
@@ -152,13 +185,10 @@ function render() {
         // Restore focus if we had it before
         if (focusInfo) {
             setTimeout(() => {
-                const inputs = root.querySelectorAll('input');
-                for (const input of inputs) {
-                    if (input.placeholder === focusInfo.placeholder && input.value === focusInfo.value) {
-                        input.focus();
-                        input.setSelectionRange(focusInfo.selectionStart, focusInfo.selectionEnd);
-                        break;
-                    }
+                const input = root.querySelector(`input[data-focus-key="${focusInfo.focusKey}"]`);
+                if (input) {
+                    input.focus();
+                    input.setSelectionRange(focusInfo.selectionStart, focusInfo.selectionEnd);
                 }
             }, 10);
         }

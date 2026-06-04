@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.1] - 2026-06-04
+
+### Added
+- Added an interactive XPath picker for site selectors. Users can click `Pick`, hover elements on the active page, and click an element to save a unique indexed XPath.
+- Added XPath selector support in article extraction while preserving existing CSS selector behavior.
+
+### Changed
+- Selector rows now include a dedicated picker action without changing the stored site configuration format.
+
+### Fixed
+- Selector and field focus now stays on the edited rule after re-rendering, even when another rule has the same value.
+
 ## [1.6.0] - 2026-05-29
 
 ### Added
