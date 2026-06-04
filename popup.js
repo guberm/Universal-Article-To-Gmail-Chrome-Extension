@@ -12,19 +12,31 @@ function el(tag, attrs, ...children) {
 }
 
 let saveTimeout;
+let ignoredSiteConfigChangeCount = 0;
+let pendingFocusInfo = null;
+
+function setSiteConfigs(configs, callback) {
+    ignoredSiteConfigChangeCount += 1;
+    chrome.storage.local.set({ siteConfigs: configs }, callback);
+}
+
+function requestFieldFocus(focusKey, selectionStart = 0, selectionEnd = 0) {
+    pendingFocusInfo = { focusKey, selectionStart, selectionEnd };
+}
+
 function saveConfigs(configs) {
     // Debounce saving to prevent constant re-rendering while typing
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(() => {
         saveTimeout = null;
-        chrome.storage.local.set({ siteConfigs: configs });
+        setSiteConfigs(configs);
     }, 300); // Wait 300ms after last keystroke
 }
 
 function saveConfigsNow(configs, callback) {
     clearTimeout(saveTimeout);
     saveTimeout = null;
-    chrome.storage.local.set({ siteConfigs: configs }, callback);
+    setSiteConfigs(configs, callback);
 }
 
 let searchQuery = '';
@@ -78,7 +90,7 @@ function render() {
         // Save the migrated config if needed
         if (needsMigration) {
             console.log('UAS Popup: Saving migrated configurations');
-            chrome.storage.local.set({ siteConfigs: allConfigs });
+            setSiteConfigs(allConfigs);
         }
         
         // Filter by search query
@@ -105,7 +117,8 @@ function render() {
         
         // Preserve focus information
         const activeElement = document.activeElement;
-        let focusInfo = null;
+        let focusInfo = pendingFocusInfo;
+        pendingFocusInfo = null;
         if (activeElement && activeElement.tagName === 'INPUT' && root.contains(activeElement) && activeElement.dataset.focusKey) {
             focusInfo = {
                 focusKey: activeElement.dataset.focusKey,
@@ -130,14 +143,15 @@ function render() {
             const saveAllConfigsNow = () => saveConfigsNow(allConfigs, render);
             const cardTitle = c.name || '(unnamed site)';
             const selectorCountText = `${c.selectors.length} selector${c.selectors.length === 1 ? '' : 's'}`;
+            const cardTitleEl = el('div', { className: 'config-card-title' }, cardTitle);
             const box = el('div', { className: 'config-box' },
                 el('div', { className: 'config-card-header' },
-                    el('div', { className: 'config-card-title' }, cardTitle),
+                    cardTitleEl,
                     el('div', { className: 'config-card-meta' }, selectorCountText)
                 ),
                 el('div', { className: 'field-grid' },
                     el('label', { className: 'field-label' }, 'Name',
-                        el('input', { type:'text', value:c.name, placeholder:'Website name', 'data-focus-key':focusKey('name'), oninput:e=>{ c.name=e.target.value; saveAllConfigs();} })
+                        el('input', { type:'text', value:c.name, placeholder:'Website name', 'data-focus-key':focusKey('name'), oninput:e=>{ c.name=e.target.value; cardTitleEl.textContent = c.name || '(unnamed site)'; saveAllConfigs();} })
                     ),
                     el('label', { className: 'field-label' }, 'Host pattern',
                         el('input', { type:'text', value:c.hostPattern, placeholder:'example\\.com or https://site.com', 'data-focus-key':focusKey('hostPattern'), oninput:e=>{c.hostPattern=e.target.value; saveAllConfigs();}})
@@ -208,9 +222,11 @@ function render() {
 
 document.getElementById('addSiteBtn').onclick = ()=>{
     chrome.storage.local.get({ siteConfigs: [] }, d=>{
+        const newConfigIndex = d.siteConfigs.length;
         d.siteConfigs.push({ name:'', hostPattern:'', defaultRecipient:'', selectors:[''] });
+        requestFieldFocus(`config:${newConfigIndex}:name`);
         // Use immediate save for button clicks (no debouncing needed)
-        chrome.storage.local.set({ siteConfigs: d.siteConfigs }, () => {
+        setSiteConfigs(d.siteConfigs, () => {
             render();
         });
     });
@@ -260,7 +276,7 @@ document.getElementById('importFileInput').addEventListener('change', (e) => {
                 if (!('name' in cfg)) cfg.name = '';
                 if (!('defaultRecipient' in cfg)) cfg.defaultRecipient = '';
             });
-            chrome.storage.local.set({ siteConfigs: parsed }, () => {
+            setSiteConfigs(parsed, () => {
                 render();
                 alert('Import successful: ' + parsed.length + ' site config(s) loaded');
             });
@@ -274,8 +290,15 @@ document.getElementById('importFileInput').addEventListener('change', (e) => {
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-    // Only re-render if this wasn't triggered by our own save
-    if (areaName === 'local' && changes.siteConfigs && !saveTimeout) {
+    if (areaName !== 'local' || !changes.siteConfigs) return;
+
+    if (ignoredSiteConfigChangeCount > 0) {
+        ignoredSiteConfigChangeCount -= 1;
+        return;
+    }
+
+    // Re-render for changes from another extension view or console helper.
+    if (!saveTimeout) {
         render();
     }
 });
@@ -371,7 +394,7 @@ window.UAS_CONFIG_IMPORT = function(jsonStringOrArray) {
             if (!('name' in cfg)) cfg.name = '';
             if (!('defaultRecipient' in cfg)) cfg.defaultRecipient = '';
         });
-        chrome.storage.local.set({ siteConfigs: parsed }, () => {
+        setSiteConfigs(parsed, () => {
             console.log('✓ Imported', parsed.length, 'config(s). Refresh side panel to see changes.');
             if (typeof render === 'function') render();
         });

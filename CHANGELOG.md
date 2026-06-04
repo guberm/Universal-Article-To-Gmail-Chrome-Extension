@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.2] - 2026-06-04
+
+### Changed
+- Site config editing now suppresses self-triggered storage refreshes while typing, reducing flicker and keeping the caret stable.
+- Adding a new site now moves focus directly to the new rule's Name field.
+- Site card titles update live while editing the Name field without requiring a full card re-render.
+
 ## [1.6.1] - 2026-06-04
 
 ### Added

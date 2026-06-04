@@ -10,6 +10,7 @@ A Chrome extension that allows you to easily copy articles with formatting and a
 - **Configurable selectors** for different websites
 - **Interactive XPath picker** for selecting article elements directly from the active page
 - **CSS and XPath selector support** for article extraction
+- **Stable rule editing** with reduced flicker, caret preservation, and automatic focus on newly added site rules
 - **Intelligent field detection** for To, Subject, and Body fields
 - **Enhanced stability** with multiple fallback selectors
 - **Comprehensive debugging tools** for troubleshooting
@@ -36,6 +37,7 @@ A Chrome extension that allows you to easily copy articles with formatting and a
    - **Host Pattern**: Regular expression matching the site URL
    - **Selectors**: CSS selectors or XPath selectors for article content (multiple selectors supported)
    - Use **Pick** next to a selector to hover elements on the active page and click one to save a unique indexed XPath.
+   - New site rules automatically focus the Name field, and edits are saved without refreshing the card on every keystroke.
 
 ### Example Configurations
 
@@ -235,6 +237,12 @@ The extension uses multiple strategies to find Gmail fields:
 | Extension not detecting article | Verify site configuration and selectors |
 
 ## Version History
+
+### v1.6.2 - Rule Editing Stability
+- Reduced flicker while typing in site rules by ignoring storage refreshes caused by the current edit session.
+- Kept the text cursor stable when editing fields and selectors.
+- Focus now moves to the new rule's Name field after clicking `Add Site`.
+- Site card titles update live while editing the Name field.
 
 ### v1.6.1 - Interactive XPath Picker
 - Added a `Pick` action for selector fields that highlights page elements and inserts a unique indexed XPath on click.
