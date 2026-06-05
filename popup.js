@@ -41,6 +41,7 @@ function saveConfigsNow(configs, callback) {
 
 let searchQuery = '';
 let activeXPathPickerKey = null;
+let dynamicCopyPickerActive = false;
 
 async function startXPathPicker(configIndex, selectorIndex) {
     const pickerKey = `config:${configIndex}:selector:${selectorIndex}`;
@@ -71,6 +72,32 @@ async function startXPathPicker(configIndex, selectorIndex) {
         activeXPathPickerKey = null;
         render();
     }
+}
+
+async function startDynamicCopyPicker() {
+    dynamicCopyPickerActive = true;
+    updateDynamicPickButton();
+
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab || !tab.id) throw new Error('No active tab found');
+
+        const response = await chrome.tabs.sendMessage(tab.id, { type: 'UAS_START_DYNAMIC_COPY_PICKER' });
+        if (response && response.error) throw new Error(response.error);
+    } catch (err) {
+        const message = err && err.message ? err.message : String(err);
+        alert('Dynamic pick failed: ' + message + '\n\nOpen the target site in the active tab and try again.');
+    } finally {
+        dynamicCopyPickerActive = false;
+        updateDynamicPickButton();
+    }
+}
+
+function updateDynamicPickButton() {
+    const btn = document.getElementById('dynamicPickBtn');
+    if (!btn) return;
+    btn.disabled = dynamicCopyPickerActive;
+    btn.textContent = dynamicCopyPickerActive ? 'Picking...' : 'Pick Content';
 }
 
 function render() {
@@ -255,6 +282,10 @@ document.getElementById('exportBtn').onclick = () => {
 // Import siteConfigs from selected JSON file
 document.getElementById('importBtn').onclick = () => {
     document.getElementById('importFileInput').click();
+};
+
+document.getElementById('dynamicPickBtn').onclick = () => {
+    startDynamicCopyPicker();
 };
 
 document.getElementById('importFileInput').addEventListener('change', (e) => {

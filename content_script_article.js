@@ -1,4 +1,17 @@
 (async function () {
+    const defaultUserSettings = { clipboardEnabled: true, clipboardPlainTextOnly: false, toastEnabled: true };
+    let cachedUserSettings = { ...defaultUserSettings };
+
+    chrome.storage.local.get({ userSettings: defaultUserSettings }, store => {
+        cachedUserSettings = { ...defaultUserSettings, ...(store.userSettings || {}) };
+    });
+
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName === 'local' && changes.userSettings) {
+            cachedUserSettings = { ...defaultUserSettings, ...(changes.userSettings.newValue || {}) };
+        }
+    });
+
     function getConfigs() {
         return new Promise(res =>
             chrome.storage.local.get({ siteConfigs: [] }, d => res(d.siteConfigs))
@@ -69,6 +82,83 @@
         return elements.find(el => el && el.nodeType === Node.ELEMENT_NODE && !isExtensionPickerElement(el)) || null;
     }
 
+    function showToast(msg, ok) {
+        let c = document.getElementById('uas-toast-container');
+        if (!c) {
+            c = document.createElement('div');
+            c.id = 'uas-toast-container';
+            Object.assign(c.style, { position: 'fixed', bottom: '20px', left: '20px', zIndex: 99999, display: 'flex', flexDirection: 'column', gap: '6px' });
+            document.body.appendChild(c);
+        }
+        const t = document.createElement('div');
+        t.textContent = msg;
+        Object.assign(t.style, { background: ok ? '#2e7d32' : '#c62828', color: '#fff', padding: '8px 12px', borderRadius: '4px', fontSize: '13px', boxShadow: '0 2px 6px rgba(0,0,0,0.2)', opacity: '0', transition: 'opacity .25s' });
+        c.appendChild(t);
+        requestAnimationFrame(() => { t.style.opacity = '1'; });
+        setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 3000);
+    }
+
+    function htmlToPlainText(html) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        return (tempDiv.textContent || tempDiv.innerText || '').trim();
+    }
+
+    async function writeClipboardContent(html, settings) {
+        const plainTextOnly = !!(settings && settings.clipboardPlainTextOnly);
+        const plainText = htmlToPlainText(html);
+        let success = false;
+        let method = 'none';
+
+        try {
+            if (navigator.clipboard && window.ClipboardItem && !plainTextOnly) {
+                const item = new ClipboardItem({
+                    'text/html': new Blob([html], { type: 'text/html' }),
+                    'text/plain': new Blob([plainText], { type: 'text/plain' })
+                });
+                await navigator.clipboard.write([item]);
+                success = true;
+                method = 'ClipboardItem';
+            } else if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(plainTextOnly ? plainText : html);
+                success = true;
+                method = 'writeText';
+            }
+        } catch (e) {
+            console.warn('UAS: Clipboard API copy failed:', e);
+        }
+
+        if (!success) {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = plainTextOnly ? plainText : html;
+                ta.style.position = 'fixed';
+                ta.style.top = '-1000px';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                success = document.execCommand('copy');
+                document.body.removeChild(ta);
+                method = success ? 'execCommand' : 'none';
+            } catch (e) {
+                console.warn('UAS: Clipboard fallback copy failed:', e);
+            }
+        }
+
+        return { success, method, mode: plainTextOnly ? 'text' : 'html' };
+    }
+
+    async function copyPickedElementToClipboard(target) {
+        const html = convertRelativeUrls(target.outerHTML);
+        const settings = cachedUserSettings;
+        const result = await writeClipboardContent(html, settings);
+        if (settings.toastEnabled !== false) {
+            showToast(result.success ? (result.mode === 'text' ? 'Picked plain text copied to clipboard' : 'Picked content copied to clipboard') : 'Dynamic pick copy failed', result.success);
+        }
+        window.UAS_TRACE && UAS_TRACE.event('dynamic_pick_copy', { success: result.success, method: result.method, mode: result.mode, bytes: html.length });
+        return { ...result, bytes: html.length, tagName: target.localName.toLowerCase() };
+    }
+
     let xpathPicker = null;
 
     function stopXPathPicker(result) {
@@ -85,7 +175,7 @@
         if (result) state.respond(result);
     }
 
-    function updateXPathHighlight(target, state, clientX, clientY) {
+    function updatePickerHighlight(target, state, clientX, clientY) {
         if (!target) {
             state.overlay.style.display = 'none';
             state.tooltip.style.display = 'none';
@@ -101,7 +191,7 @@
             height: `${rect.height}px`
         });
 
-        state.tooltip.textContent = `${target.localName.toLowerCase()} - click to use XPath, Esc to cancel`;
+        state.tooltip.textContent = `${target.localName.toLowerCase()} - ${state.tooltipActionText}, Esc to cancel`;
         Object.assign(state.tooltip.style, {
             display: 'block',
             left: `${Math.min(clientX + 12, window.innerWidth - 260)}px`,
@@ -109,7 +199,7 @@
         });
     }
 
-    function startXPathPicker(sendResponse) {
+    function startElementPicker(options, sendResponse) {
         if (xpathPicker) stopXPathPicker({ cancelled: true });
 
         const overlay = document.createElement('div');
@@ -144,15 +234,28 @@
             overlay,
             tooltip,
             respond: sendResponse,
+            tooltipActionText: options.tooltipActionText,
             onMouseMove(e) {
-                updateXPathHighlight(getPickTarget(e.clientX, e.clientY), state, e.clientX, e.clientY);
+                updatePickerHighlight(getPickTarget(e.clientX, e.clientY), state, e.clientX, e.clientY);
             },
-            onMouseDown(e) {
+            async onMouseDown(e) {
                 const target = getPickTarget(e.clientX, e.clientY);
                 if (!target) return;
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
+                if (options.mode === 'copy') {
+                    state.tooltip.textContent = 'Copying selected content...';
+                    try {
+                        const result = await copyPickedElementToClipboard(target);
+                        stopXPathPicker(result);
+                    } catch (err) {
+                        const message = err && err.message ? err.message : String(err);
+                        showToast('Dynamic pick copy failed', false);
+                        stopXPathPicker({ success: false, error: message });
+                    }
+                    return;
+                }
                 const xpath = getIndexedXPath(target);
                 const result = document.evaluate(xpath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
                 stopXPathPicker({ xpath, unique: result.snapshotLength === 1 });
@@ -174,9 +277,21 @@
         xpathPicker = state;
     }
 
+    function startXPathPicker(sendResponse) {
+        startElementPicker({ mode: 'xpath', tooltipActionText: 'click to use XPath' }, sendResponse);
+    }
+
+    function startDynamicCopyPicker(sendResponse) {
+        startElementPicker({ mode: 'copy', tooltipActionText: 'click to copy content' }, sendResponse);
+    }
+
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (msg && msg.type === 'UAS_START_XPATH_PICKER') {
             startXPathPicker(sendResponse);
+            return true;
+        }
+        if (msg && msg.type === 'UAS_START_DYNAMIC_COPY_PICKER') {
+            startDynamicCopyPicker(sendResponse);
             return true;
         }
         return false;

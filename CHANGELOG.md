@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.3] - 2026-06-05
+
+### Added
+- Added a dynamic `Pick Content` action in the popup and side panel. Users can start a picker on the active tab, hover any page element, and click it to copy that element's content to the clipboard without creating or saving a site configuration.
+- Added dynamic picker support for both rich HTML clipboard payloads and plain text mode, using the existing clipboard settings and toast feedback.
+
+### Changed
+- The existing XPath selector picker and the new dynamic content picker now share the same hover highlight interaction while keeping their results separate.
+
 ## [1.6.2] - 2026-06-04
 
 ### Changed

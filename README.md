@@ -9,6 +9,7 @@ A Chrome extension that allows you to easily copy articles with formatting and a
 - **Default recipient auto-fill** - set default email addresses per site
 - **Configurable selectors** for different websites
 - **Interactive XPath picker** for selecting article elements directly from the active page
+- **Dynamic content picker** for copying any hovered page element to the clipboard without adding a site rule
 - **CSS and XPath selector support** for article extraction
 - **Stable rule editing** with reduced flicker, caret preservation, and automatic focus on newly added site rules
 - **Intelligent field detection** for To, Subject, and Body fields
@@ -76,11 +77,23 @@ Open the popup Settings section to toggle:
 - Copy as plain text only (disables HTML flavor)
 - Show toast notifications (success/failure feedback)
 
+### Dynamic Content Pick
+
+Use `Pick Content` in the popup or side panel when you want to copy page content without creating a site configuration:
+
+1. Open the target page in the active tab.
+2. Click `Pick Content`.
+3. Hover the element you want to copy.
+4. Click the highlighted element to copy it to the clipboard.
+5. Press `Esc` to cancel picker mode.
+
+The copied payload preserves HTML formatting by default, includes a plain text clipboard flavor when available, converts relative URLs inside the selected HTML to absolute URLs, and respects the `Copy as plain text only` setting.
+
 ### Import / Export Configurations
 
 **UI Buttons (Side Panel/Popup):**
-- Click `Export JSON` to download `siteConfigs.json` backup.
-- Click `Import JSON` and choose a previously exported file to replace all configs.
+- Click `Export` to download `siteConfigs.json` backup.
+- Click `Import` and choose a previously exported file to replace all configs.
 - Validation ensures each config has `hostPattern` and `selectors` (backwards compatible with legacy `toEmail`).
 
 **Console Commands (Side Panel/Popup):**
@@ -237,6 +250,11 @@ The extension uses multiple strategies to find Gmail fields:
 | Extension not detecting article | Verify site configuration and selectors |
 
 ## Version History
+
+### v1.6.3 - Dynamic Content Picker
+- Added `Pick Content` in the popup and side panel for copying any hovered page element without adding a site configuration.
+- Reused the existing picker highlight model while keeping dynamic copy separate from saved XPath selector rules.
+- Preserved rich HTML clipboard output by default, with plain text mode and toast notifications following the existing settings.
 
 ### v1.6.2 - Rule Editing Stability
 - Reduced flicker while typing in site rules by ignoring storage refreshes caused by the current edit session.

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Universal Article to Gmail",
-  "version": "1.6.2",
-  "description": "Copy articles with formatting and insert into Gmail automatically. Configurable selectors with enhanced field detection.",
+  "version": "1.6.3",
+  "description": "Copy articles or picked page content with formatting and insert into Gmail automatically. Configurable selectors with enhanced field detection.",
   "permissions": ["storage", "clipboardWrite", "sidePanel", "tabs"],
   "host_permissions": [
     "https://mail.google.com/*",

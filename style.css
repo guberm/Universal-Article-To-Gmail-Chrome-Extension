@@ -93,6 +93,7 @@ h1 {
 
 .toolbar-actions {
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .configs-list {
